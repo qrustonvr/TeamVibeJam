@@ -1,9 +1,10 @@
 import { useReducer } from 'react'
 import { GamePhase, GameState, GameAction, Round } from '@/types/game'
 import { GAME_CONFIG, MAX_ROUND_HISTORY } from '@/utils/constants'
+import { loadBalance } from '@/utils/storage'
 
 const initialState: GameState = {
-  balance: GAME_CONFIG.STARTING_BALANCE,
+  balance: loadBalance(),
   currentBet: 0,
   phase: GamePhase.BETTING,
   roundHistory: [],
