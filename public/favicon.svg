@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <!-- Dice face -->
+  <rect width="64" height="64" rx="12" fill="#1a2e1a"/>
+  <rect x="4" y="4" width="56" height="56" rx="9" fill="#0d1f0d" stroke="#d4af37" stroke-width="2"/>
+  <!-- Pip top-left -->
+  <circle cx="18" cy="18" r="5" fill="#d4af37"/>
+  <!-- Pip top-right -->
+  <circle cx="46" cy="18" r="5" fill="#d4af37"/>
+  <!-- Pip middle-left -->
+  <circle cx="18" cy="32" r="5" fill="#d4af37"/>
+  <!-- Pip middle-right -->
+  <circle cx="46" cy="32" r="5" fill="#d4af37"/>
+  <!-- Pip bottom-left -->
+  <circle cx="18" cy="46" r="5" fill="#d4af37"/>
+  <!-- Pip bottom-right -->
+  <circle cx="46" cy="46" r="5" fill="#d4af37"/>
+</svg>

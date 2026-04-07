@@ -1,0 +1,88 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ─── Casino Theme Variables ─────────────────────────────────────── */
+:root {
+  --felt-green:   #1a4a1a;
+  --felt-dark:    #0d2b0d;
+  --gold:         #d4af37;
+  --gold-dim:     #8a7020;
+  --chip-red:     #c0392b;
+  --chip-blue:    #2980b9;
+  --chip-black:   #1a1a1a;
+  --chip-white:   #f0ece0;
+  --font-display: "Playfair Display", serif;
+  --font-body:    "JetBrains Mono", monospace;
+}
+
+/* ─── Global Resets ──────────────────────────────────────────────── */
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+html, body, #root {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+body {
+  background: #080f08;
+  color: #e8e4d8;
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+/* Hide scrollbars globally */
+::-webkit-scrollbar { display: none; }
+* { scrollbar-width: none; }
+
+/* ─── Felt Noise Texture ─────────────────────────────────────────── */
+.table-felt-noise {
+  background-image:
+    url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+  background-size: 200px 200px;
+  opacity: 0.5;
+  mix-blend-mode: overlay;
+}
+
+/* ─── Scanline Animation ─────────────────────────────────────────── */
+.table-scanline::after {
+  content: '';
+  position: absolute;
+  top: -100%;
+  left: 0;
+  right: 0;
+  height: 40%;
+  background: linear-gradient(
+    to bottom,
+    transparent 0%,
+    rgba(255, 255, 255, 0.015) 50%,
+    transparent 100%
+  );
+  animation: scanline 10s linear infinite;
+  pointer-events: none;
+}
+
+@keyframes scanline {
+  0%   { transform: translateY(0); }
+  100% { transform: translateY(300%); }
+}
+
+/* ─── Gold Glow Animation ────────────────────────────────────────── */
+@keyframes glow {
+  0%   { text-shadow: 0 0 8px rgba(212, 175, 55, 0.3); }
+  100% { text-shadow: 0 0 24px var(--gold), 0 0 48px rgba(212, 175, 55, 0.35); }
+}
+
+.animate-glow {
+  animation: glow 2.5s ease-in-out infinite alternate;
+}
+
+/* ─── Font Utilities ─────────────────────────────────────────────── */
+.font-display { font-family: var(--font-display); }
+.font-body    { font-family: var(--font-body); }
