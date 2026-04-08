@@ -1,5 +1,6 @@
 import http from 'http'
 import { WebSocketServer } from 'ws'
+import type WebSocket from 'ws'
 import type { ClientMessage } from '@shared/protocol.js'
 import {
   createRoom,
@@ -14,6 +15,10 @@ import { lookupSession } from './sessionStore.js'
 
 const PORT = Number(process.env.PORT ?? 3001)
 const CLIENT_ORIGIN = process.env.CLIENT_ORIGIN ?? 'http://localhost:5173'
+const PING_INTERVAL_MS = 20_000
+
+// Track liveness per socket
+const alive = new WeakMap<WebSocket, boolean>()
 
 const httpServer = http.createServer((req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*')
@@ -34,9 +39,28 @@ const httpServer = http.createServer((req, res) => {
 
 const wss = new WebSocketServer({ server: httpServer })
 
+// Heartbeat: ping every 20s, terminate clients that don't pong back
+const pingInterval = setInterval(() => {
+  wss.clients.forEach(ws => {
+    if (alive.get(ws) === false) {
+      console.log('Terminating unresponsive client')
+      ws.terminate()
+      return
+    }
+    alive.set(ws, false)
+    ws.ping()
+  })
+}, PING_INTERVAL_MS)
+
+wss.on('close', () => clearInterval(pingInterval))
+
 wss.on('connection', (ws, req) => {
+  alive.set(ws, true)
+  ws.on('pong', () => alive.set(ws, true))
+
   const origin = req.headers.origin ?? ''
   console.log(`WS connection from origin: "${origin}"`)
+
   // Permissive for game jam: allow any github.io subdomain and localhost
   const allowed =
     !origin ||
@@ -57,11 +81,11 @@ wss.on('connection', (ws, req) => {
     } catch {
       return
     }
-
     handleMessage(ws, msg)
   })
 
   ws.on('close', () => {
+    alive.delete(ws)
     handleDisconnect(ws)
   })
 
@@ -70,13 +94,13 @@ wss.on('connection', (ws, req) => {
   })
 })
 
-function sendError(ws: import('ws').WebSocket, code: import('@shared/protocol.js').ErrorCode, message: string): void {
+function sendError(ws: WebSocket, code: import('@shared/protocol.js').ErrorCode, message: string): void {
   if (ws.readyState === 1) {
     ws.send(JSON.stringify({ type: 'ERROR', code, message }))
   }
 }
 
-function handleMessage(ws: import('ws').WebSocket, msg: ClientMessage): void {
+function handleMessage(ws: WebSocket, msg: ClientMessage): void {
   switch (msg.type) {
     case 'CREATE_ROOM': {
       const result = createRoom(ws, msg.displayName, msg.maxPlayers)
@@ -120,6 +144,8 @@ function handleMessage(ws: import('ws').WebSocket, msg: ClientMessage): void {
         roomCode: msg.roomCode.toUpperCase(),
       }))
       const room = getRoom(msg.roomCode)!
+      // broadcastState sends each player their personalised snapshot (includes updated seats)
+      room.broadcastState()
       room.broadcastAll({
         type: 'PLAYER_JOINED',
         seatIndex: result.seatIndex,
@@ -138,7 +164,6 @@ function handleMessage(ws: import('ws').WebSocket, msg: ClientMessage): void {
           lastAction: s.lastAction as (import('@shared/gameTypes.js').PlayerActionType | null),
         })),
       })
-      room.broadcastState()
       break
     }
 

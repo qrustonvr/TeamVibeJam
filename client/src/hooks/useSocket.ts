@@ -76,7 +76,7 @@ export function useSocket(): [MultiplayerState, SocketActions] {
     setMpState(s => ({ ...s, log: [...s.log.slice(-49), message] }))
   }, [])
 
-  const handleMessage = useCallback((msg: ServerMessage, _roomCode: string | null, seatIndex: number | null) => {
+  const handleMessage = useCallback((msg: ServerMessage) => {
     switch (msg.type) {
       case 'SESSION_ASSIGNED':
         storeSession(msg.roomCode, msg.sessionToken)
@@ -136,9 +136,8 @@ export function useSocket(): [MultiplayerState, SocketActions] {
         break
 
       case 'HOLE_CARDS':
-        if (msg.seatIndex === seatIndex) {
-          setMpState(s => ({ ...s, gameState: s.gameState ? { ...s.gameState, yourCards: msg.cards } : s.gameState }))
-        }
+        // Server only sends HOLE_CARDS to this specific player, so always apply it
+        setMpState(s => ({ ...s, gameState: s.gameState ? { ...s.gameState, yourCards: msg.cards } : s.gameState }))
         break
 
       case 'COMMUNITY_CARDS':
@@ -259,7 +258,7 @@ export function useSocket(): [MultiplayerState, SocketActions] {
     ws.onmessage = (event) => {
       try {
         const msg = JSON.parse(event.data as string) as ServerMessage
-        handleMessage(msg, null, null)
+        handleMessage(msg)
       } catch {
         // ignore malformed
       }
