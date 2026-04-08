@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Button } from '@/components/ui/Button'
+import type { BrewResult } from '@shared/gameTypes'
 
 interface BettingControlsProps {
   isYourTurn: boolean
@@ -8,6 +9,7 @@ interface BettingControlsProps {
   myCurrentBet: number
   myStack: number
   activeSeatName?: string
+  activeBrew?: BrewResult | null
   onAction: (action: string, amount?: number) => void
 }
 
@@ -18,6 +20,7 @@ export function BettingControls({
   myCurrentBet,
   myStack,
   activeSeatName,
+  activeBrew,
   onAction,
 }: BettingControlsProps) {
   const [raiseAmount, setRaiseAmount] = useState<number | null>(null)
@@ -27,18 +30,26 @@ export function BettingControls({
   const canCheck = toCall === 0
   const minRaise = currentBetLevel * 2 || 20
   const effectiveRaise = raiseAmount ?? minRaise
+  const isFireSale = activeBrew?.modifier === 'fire-sale'
 
   if (!isYourTurn) {
     return (
-      <div style={{
-        padding: '12px 16px',
-        textAlign: 'center',
-        fontFamily: 'var(--font-body)',
-        fontSize: 13,
-        color: 'rgba(255,255,255,0.4)',
-        fontStyle: 'italic',
-      }}>
-        Waiting for {activeSeatName ?? 'another player'}…
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+        {isFireSale && (
+          <div style={{
+            fontFamily: 'var(--font-body)', fontSize: 10, letterSpacing: 2,
+            color: '#fb923c', textTransform: 'uppercase',
+          }}>
+            🔥 UNCAPPED
+          </div>
+        )}
+        <div style={{
+          padding: '12px 16px', textAlign: 'center',
+          fontFamily: 'var(--font-body)', fontSize: 13,
+          color: 'rgba(255,255,255,0.4)', fontStyle: 'italic',
+        }}>
+          Waiting for {activeSeatName ?? 'another player'}…
+        </div>
       </div>
     )
   }
@@ -50,6 +61,14 @@ export function BettingControls({
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+      {isFireSale && (
+        <div style={{
+          textAlign: 'center', fontFamily: 'var(--font-body)', fontSize: 10,
+          letterSpacing: 2, color: '#fb923c', textTransform: 'uppercase',
+        }}>
+          🔥 FIRE SALE — Betting uncapped
+        </div>
+      )}
       {!showRaise ? (
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', justifyContent: 'center' }}>
           <Button variant="danger" onClick={() => onAction('fold')}>Fold</Button>
@@ -96,7 +115,7 @@ export function BettingControls({
               type="number"
               value={effectiveRaise}
               min={minRaise}
-              max={myStack + myCurrentBet}
+              max={isFireSale ? undefined : myStack + myCurrentBet}
               step={10}
               onChange={e => setRaiseAmount(Number(e.target.value))}
               style={{

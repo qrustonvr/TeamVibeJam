@@ -155,6 +155,26 @@ export function useSocket(): [MultiplayerState, SocketActions] {
         appendLog(`Drop zone revealed!`)
         break
 
+      case 'BREW_REVEAL':
+        setMpState(s => s.gameState ? {
+          ...s,
+          gameState: { ...s.gameState, dropZone: msg.dropZone, activeBrew: msg.brew },
+        } : s)
+        appendLog(`${msg.brew.icon} ${msg.brew.name} — ${msg.brew.description}`)
+        break
+
+      case 'CARD_EXPOSED':
+        setMpState(s => s.gameState ? {
+          ...s,
+          gameState: {
+            ...s.gameState,
+            seats: s.gameState.seats.map(seat =>
+              seat.seatIndex === msg.seatIndex ? { ...seat, exposedCard: msg.card } : seat
+            ),
+          },
+        } : s)
+        break
+
       case 'DROP_ACK':
         appendLog(`${msg.dropsReceived}/${msg.totalNeeded} players have dropped`)
         setMpState(s => s.gameState ? {

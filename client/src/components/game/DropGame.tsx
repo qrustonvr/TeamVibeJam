@@ -5,13 +5,17 @@ import { Lobby } from './drop/Lobby'
 import { WaitingRoom } from './drop/WaitingRoom'
 import { TableView } from './drop/TableView'
 import { ConnectionStatus } from './drop/ConnectionStatus'
-import type { HandWinner, PublicSeat } from '@shared/gameTypes'
+import { BrewReference } from './drop/BrewReference'
+import type { HandWinner, PublicSeat, BrewResult } from '@shared/gameTypes'
 
 type GameMode = 'idle' | 'solo' | 'multiplayer'
+
+const BETTING_PHASES = ['betting_1','betting_2','betting_3','betting_4','betting_5']
 
 export function DropGame() {
   const [mode, setMode] = useState<GameMode>('idle')
   const [log, setLog] = useState<string[]>([])
+  const [brewRefOpen, setBrewRefOpen] = useState(false)
 
   // Singleplayer hook
   const solo = useDropGame()
@@ -39,6 +43,7 @@ export function DropGame() {
       hasDropped: s.hasDropped,
       cardCount: s.holeCards.length,
       lastAction: s.lastAction as (import('@shared/gameTypes').PlayerActionType | null),
+      exposedCard: s.exposedCard,
     }))
 
     const handWinners: HandWinner[] = state.handWinners?.map(w => ({
@@ -65,9 +70,7 @@ export function DropGame() {
 
     return (
       <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}>
-        <div style={{
-          display: 'flex', justifyContent: 'flex-end', padding: '4px 8px',
-        }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 8px', alignItems: 'center' }}>
           <button
             onClick={() => { reset(); setMode('idle') }}
             style={{
@@ -77,6 +80,17 @@ export function DropGame() {
             }}
           >
             ← Lobby
+          </button>
+          <button
+            onClick={() => setBrewRefOpen(true)}
+            title="The Brew Reference"
+            style={{
+              padding: '3px 8px', fontSize: 11, borderRadius: 4,
+              background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)',
+              color: 'rgba(255,255,255,0.5)', cursor: 'pointer', fontFamily: 'var(--font-body)',
+            }}
+          >
+            ⚗ Brew
           </button>
         </div>
         <TableView
@@ -95,6 +109,7 @@ export function DropGame() {
           handWinners={handWinners}
           log={log}
           dropsReceived={state.seats.filter(s => !s.folded && s.hasDropped).length}
+          activeBrew={state.activeBrew}
           onAction={(action, amount) => {
             appendLog(`You ${action}${amount ? ` ${amount}` : ''}`)
             playerAction(action, amount)
@@ -104,6 +119,7 @@ export function DropGame() {
             dropCard(idx)
           }}
         />
+        <BrewReference open={brewRefOpen} onClose={() => setBrewRefOpen(false)} />
       </div>
     )
   }
@@ -114,12 +130,7 @@ export function DropGame() {
     const { gameState, connectionStatus, roomCode, seatIndex, error, log: mpLog } = mpState
     const { createRoom, joinRoom, startGame, sendAction, dropCard, clearError, disconnect } = mpActions
 
-    // Combine server log with local appendLog
-    const displayLog = mpLog
-
-    // Lobby: not yet in a room
     if (!gameState || gameState.phase === 'lobby') {
-      // If we have a room code but no game state, we're in the waiting room
       if (roomCode && gameState) {
         const isHost = seatIndex === gameState.hostSeatIndex
         return (
@@ -156,11 +167,12 @@ export function DropGame() {
     if (!gameState) return null
 
     const isYourTurn = gameState.activeSeatIndex === seatIndex &&
-      ['betting_1','betting_2','betting_3','betting_4'].includes(gameState.phase)
-    const isYourDropTurn = ['drop_1','drop_2','drop_3'].includes(gameState.phase) &&
+      BETTING_PHASES.includes(gameState.phase)
+    const isYourDropTurn = gameState.phase === 'drop' &&
       !gameState.seats.find(s => s.seatIndex === seatIndex)?.hasDropped
 
     const handWinners: HandWinner[] = []
+    const activeBrew = gameState.activeBrew as BrewResult | null | undefined
 
     return (
       <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}>
@@ -177,7 +189,19 @@ export function DropGame() {
           >
             ← Lobby
           </button>
-          <ConnectionStatus status={connectionStatus} roomCode={roomCode} />
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <button
+              onClick={() => setBrewRefOpen(true)}
+              style={{
+                padding: '3px 8px', fontSize: 11, borderRadius: 4,
+                background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)',
+                color: 'rgba(255,255,255,0.5)', cursor: 'pointer', fontFamily: 'var(--font-body)',
+              }}
+            >
+              ⚗ Brew
+            </button>
+            <ConnectionStatus status={connectionStatus} roomCode={roomCode} />
+          </div>
         </div>
 
         {error && (
@@ -217,11 +241,13 @@ export function DropGame() {
           isYourDropTurn={isYourDropTurn}
           actionDeadline={gameState.actionDeadline}
           handWinners={handWinners}
-          log={displayLog}
+          log={mpLog}
           dropsReceived={gameState.seats.filter(s => !s.folded && s.hasDropped).length}
+          activeBrew={activeBrew}
           onAction={(action, amount) => sendAction(action, amount)}
           onDropCard={(idx) => dropCard(idx as 0 | 1 | 2)}
         />
+        <BrewReference open={brewRefOpen} onClose={() => setBrewRefOpen(false)} />
       </div>
     )
   }

@@ -162,6 +162,7 @@ function handleMessage(ws: WebSocket, msg: ClientMessage): void {
           hasDropped: s.hasDropped,
           cardCount: s.holeCards.length,
           lastAction: s.lastAction as (import('@shared/gameTypes.js').PlayerActionType | null),
+          exposedCard: s.exposedCard,
         })),
       })
       break
@@ -208,7 +209,7 @@ function handleMessage(ws: WebSocket, msg: ClientMessage): void {
       if (!room) return
       const seat = room.findSeatByWs(ws)
       if (!seat) return
-      if (!['drop_1','drop_2','drop_3'].includes(room.state.phase)) {
+      if (room.state.phase !== 'drop') {
         sendError(ws, 'INVALID_PHASE', 'Not in drop phase')
         return
       }

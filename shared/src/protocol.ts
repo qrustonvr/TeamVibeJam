@@ -1,4 +1,4 @@
-import type { DropPhase, PublicSeat, RoomSnapshot, HandWinner, Card } from './gameTypes.js'
+import type { DropPhase, PublicSeat, RoomSnapshot, HandWinner, Card, BrewResult } from './gameTypes.js'
 
 // ─── CLIENT → SERVER ─────────────────────────────────────────────────────────
 
@@ -26,6 +26,8 @@ export type ServerMessage =
   | { type: 'DROP_PROMPT';        deadline: number }
   | { type: 'DROP_ACK';           seatIndex: number; dropsReceived: number; totalNeeded: number }
   | { type: 'DROP_REVEALED';      dropZone: Card[] }
+  | { type: 'BREW_REVEAL';        brew: BrewResult; dropZone: Card[] }
+  | { type: 'CARD_EXPOSED';       seatIndex: number; card: Card }
   | { type: 'ACTION_ACK';         seatIndex: number; action: string; amount: number; pot: number; currentBetLevel: number; stack: number }
   | { type: 'COMMUNITY_CARDS';    cards: Card[] }
   | { type: 'HOLE_CARDS_REVEAL';  reveals: Array<{ seatIndex: number; cards: Card[] }> }

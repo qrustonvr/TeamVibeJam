@@ -9,7 +9,8 @@
       "Bash(git mv:*)",
       "Bash(git -C /d/Repos/TeamVibeJam status --short)",
       "Bash(git -C /d/Repos/TeamVibeJam add package.json package-lock.json render.yaml server/ shared/ client/src/ai/ client/src/components/game/DropGame.tsx client/src/components/game/drop/ client/src/hooks/useDropGame.ts client/src/hooks/useSocket.ts client/.env.development client/.env.production)",
-      "Bash(git -C:*)"
+      "Bash(git -C:*)",
+      "Bash(npx tsc:*)"
     ]
   }
 }

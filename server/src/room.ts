@@ -1,16 +1,19 @@
 import { v4 as uuidv4 } from 'uuid'
 import type WebSocket from 'ws'
 import type { ServerMessage } from '@shared/protocol.js'
-import type { DropPhase } from '@shared/gameTypes.js'
+import type { DropPhase, Card } from '@shared/gameTypes.js'
 import { ANTE_AMOUNT, ACTION_TIMER_MS, DROP_TIMER_MS, PAYOUT_PAUSE_MS, RECONNECT_HOLD_MS } from '@shared/constants.js'
 import {
-  dealHand, dealFlop, dealTurn, dealRiver, dealCardToPlayers, resetDropState,
+  dealHand, dealFlop, dealTurn, dealRiver,
   validateAction, applyAction, isBettingRoundComplete,
   startBettingRound, nextBettingPlayer,
-  applyDrop, allHaveDropped, revealDropZone, runShowdown,
+  applyDrop, allHaveDropped, collectDropZone,
+  applyNuke, applyBleedingPot, applyJackpot, applyGraveDig, applyUnderdog, applySabotage,
+  runShowdown,
   getValidActions, rotateDealerIndex, anyActivePlayersHaveChips, autoDropChoice,
   nextUndroppedSeat,
 } from './gameEngine.js'
+import { resolveBrews } from './brewEngine.js'
 import { assignSession, lookupSession, scheduleExpiry, cancelExpiry } from './sessionStore.js'
 import type { ServerRoomState, ServerSeat } from './types.js'
 import { seatToPublic } from './types.js'
@@ -37,6 +40,10 @@ export class Room {
       lastActivityAt: Date.now(),
       actionDeadline: null,
       roundActedSeats: new Set(),
+      activeBrew: null,
+      nextAnteMultiplier: 1,
+      turnIsHidden: false,
+      maxBetOverride: 0,
     }
   }
 
@@ -55,8 +62,9 @@ export class Room {
       allIn: false,
       isConnected: true,
       hasDropped: false,
-      holeCards: [] as unknown as [import('@shared/gameTypes.js').Card, import('@shared/gameTypes.js').Card, import('@shared/gameTypes.js').Card],
+      holeCards: [] as unknown as [Card, Card, Card],
       droppedCard: null,
+      exposedCard: null,
       sessionToken: token,
       ws,
       lastAction: null,
@@ -107,11 +115,20 @@ export class Room {
 
   buildSnapshot(forSeatIndex: number): import('@shared/gameTypes.js').RoomSnapshot {
     const mySeat = this.state.seats[forSeatIndex]
+    // For BLACKOUT: mask the turn card (index 3) as face-down placeholder
+    let communityCards = this.state.communityCards
+    if (this.state.turnIsHidden && communityCards.length >= 4) {
+      communityCards = [
+        ...communityCards.slice(0, 3),
+        { rankIndex: -1, suit: '?', display: '?' },
+        ...communityCards.slice(4),
+      ]
+    }
     return {
       roomCode: this.state.code,
       phase: this.state.phase,
       seats: this.state.seats.map(seatToPublic),
-      communityCards: this.state.communityCards,
+      communityCards,
       dropZone: this.state.dropZone,
       pot: this.state.pot,
       currentBetLevel: this.state.currentBetLevel,
@@ -122,6 +139,9 @@ export class Room {
       yourSeatIndex: forSeatIndex,
       actionDeadline: this.state.actionDeadline,
       hostSeatIndex: this.state.hostSeatIndex,
+      activeBrew: this.state.activeBrew,
+      nextAnteMultiplier: this.state.nextAnteMultiplier,
+      turnIsHidden: this.state.turnIsHidden,
     }
   }
 
@@ -160,7 +180,6 @@ export class Room {
     this.state.actionTimer = setTimeout(() => {
       const seat = this.state.seats[seatIndex]
       if (!seat || seat.hasDropped || seat.folded) {
-        // Try to find next un-dropped seat
         const next = nextUndroppedSeat(this.state)
         if (next !== -1) this.startDropTimer(next)
         return
@@ -172,6 +191,14 @@ export class Room {
   }
 
   // ─── Phase state machine ─────────────────────────────────────────────────
+  //
+  // New flow:
+  //   deal (3 cards) → betting_1 (pre-flop)
+  //   → flop → betting_2 (post-flop, BEFORE drop)
+  //   → drop → brew_reveal → betting_3 (post-brew)
+  //   → turn → betting_4
+  //   → river → betting_5
+  //   → showdown → payout
 
   startGame(): void {
     this.state.roundNumber = 0
@@ -183,7 +210,7 @@ export class Room {
     this.setPhase('deal')
     dealHand(this.state)
 
-    // Send 2 hole cards privately to each player
+    // Send 3 hole cards privately to each player
     for (const seat of this.state.seats) {
       this.sendTo(seat.seatIndex, {
         type: 'HOLE_CARDS',
@@ -193,7 +220,6 @@ export class Room {
       this.broadcastAll({ type: 'HOLE_CARDS_DEALT', seatIndex: seat.seatIndex })
     }
 
-    // After deal animation, start pre-flop betting
     setTimeout(() => this.startBetting1(), 800)
   }
 
@@ -204,45 +230,12 @@ export class Room {
     this.promptCurrentPlayer()
   }
 
-  // ── Shared helper: deal +1 hole card to each active player and send privately ─
-
-  private dealAndSendHoleCard(streetName: string, logCard: string): void {
-    resetDropState(this.state)
-    dealCardToPlayers(this.state)
-    for (const seat of this.state.seats) {
-      if (!seat.folded) {
-        this.sendTo(seat.seatIndex, {
-          type: 'HOLE_CARDS',
-          seatIndex: seat.seatIndex,
-          cards: seat.holeCards,
-        })
-      }
-    }
-    this.logAndBroadcast(`${streetName}: ${logCard} — each player receives a new card`)
-  }
-
   startFlop(): void {
     this.setPhase('flop')
     const cards = dealFlop(this.state)
     this.broadcastAll({ type: 'COMMUNITY_CARDS', cards: this.state.communityCards })
-    this.dealAndSendHoleCard('Flop', cards.map(c => c.display).join(' '))
-    setTimeout(() => this.startDrop1Phase(), 600)
-  }
-
-  startDrop1Phase(): void {
-    this.setPhase('drop_1')
-    this.broadcastState()
-    this.logAndBroadcast('THE DROP (flop) — choose a card to send to the drop zone')
-    const first = nextUndroppedSeat(this.state)
-    if (first !== -1) this.startDropTimer(first)
-  }
-
-  startDrop1Reveal(): void {
-    this.setPhase('drop_1_reveal')
-    revealDropZone(this.state)
-    this.broadcastAll({ type: 'DROP_REVEALED', dropZone: this.state.dropZone })
-    this.logAndBroadcast(`Drop zone: ${this.state.dropZone.map(c => c.display).join(' ')}`)
-    setTimeout(() => this.startBetting2(), 1200)
+    this.logAndBroadcast(`Flop: ${cards.map(c => c.display).join(' ')}`)
+    setTimeout(() => this.startBetting2(), 600)
   }
 
   startBetting2(): void {
@@ -252,28 +245,128 @@ export class Room {
     this.promptCurrentPlayer()
   }
 
-  startTurn(): void {
-    this.setPhase('turn')
-    const card = dealTurn(this.state)
-    this.broadcastAll({ type: 'COMMUNITY_CARDS', cards: this.state.communityCards })
-    this.dealAndSendHoleCard('Turn', card.display)
-    setTimeout(() => this.startDrop2Phase(), 600)
-  }
-
-  startDrop2Phase(): void {
-    this.setPhase('drop_2')
+  startDropPhase(): void {
+    this.setPhase('drop')
     this.broadcastState()
-    this.logAndBroadcast('THE DROP (turn) — choose a card to send to the drop zone')
+    this.logAndBroadcast('THE DROP — choose a card to send to the Brew')
+    this.broadcastAll({ type: 'DROP_PROMPT', deadline: Date.now() + DROP_TIMER_MS })
     const first = nextUndroppedSeat(this.state)
     if (first !== -1) this.startDropTimer(first)
   }
 
-  startDrop2Reveal(): void {
-    this.setPhase('drop_2_reveal')
-    revealDropZone(this.state)
-    this.broadcastAll({ type: 'DROP_REVEALED', dropZone: this.state.dropZone })
-    this.logAndBroadcast(`Drop zone: ${this.state.dropZone.map(c => c.display).join(' ')}`)
-    setTimeout(() => this.startBetting3(), 1200)
+  startBrewReveal(): void {
+    this.clearTimer()
+    const droppedCards = collectDropZone(this.state)
+    const brew = resolveBrews(droppedCards)
+    this.state.activeBrew = brew
+
+    this.setPhase('brew_reveal')
+    this.broadcastAll({ type: 'BREW_REVEAL', brew, dropZone: this.state.dropZone })
+    this.logAndBroadcast(`${brew.icon} ${brew.name} — ${brew.description}`)
+
+    // Apply brew effect, then after animation delay advance to post-brew betting
+    setTimeout(() => {
+      this.applyBrewEffect()
+    }, 5000)
+  }
+
+  private applyBrewEffect(): void {
+    const brew = this.state.activeBrew
+    if (!brew) { this.startBetting3(); return }
+
+    switch (brew.modifier) {
+      case 'nuke': {
+        const newFlop = applyNuke(this.state)
+        this.broadcastAll({ type: 'COMMUNITY_CARDS', cards: this.state.communityCards })
+        this.logAndBroadcast(`☢️ New flop: ${newFlop.map(c => c.display).join(' ')}`)
+        this.broadcastState()
+        break
+      }
+
+      case 'chain-lightning':
+        // Effect resolved at showdown
+        this.logAndBroadcast('⚡ Stacks will swap at showdown!')
+        this.broadcastState()
+        break
+
+      case 'royal-tax':
+        this.state.nextAnteMultiplier = 2
+        this.logAndBroadcast("👑 Next hand's ante is doubled!")
+        this.broadcastState()
+        break
+
+      case 'underdog': {
+        const result = applyUnderdog(this.state)
+        if (result) {
+          const seatName = this.state.seats[result.seatIndex]?.displayName ?? 'Unknown'
+          // Send updated cards privately to the underdog player
+          this.sendTo(result.seatIndex, {
+            type: 'HOLE_CARDS',
+            seatIndex: result.seatIndex,
+            cards: this.state.seats[result.seatIndex].holeCards,
+          })
+          this.logAndBroadcast(`🐕 ${seatName} draws a bonus card!`)
+        }
+        this.broadcastState()
+        break
+      }
+
+      case 'bleeding-pot':
+        applyBleedingPot(this.state)
+        this.logAndBroadcast(`💔 Pot doubled to ${this.state.pot}! Winner splits 50% with runner-up.`)
+        this.broadcastState()
+        break
+
+      case 'grave-dig': {
+        const dealt = applyGraveDig(this.state)
+        for (const [seatIndex] of dealt) {
+          this.sendTo(seatIndex, {
+            type: 'HOLE_CARDS',
+            seatIndex,
+            cards: this.state.seats[seatIndex].holeCards,
+          })
+        }
+        this.logAndBroadcast('⚰️ Everyone draws a card from the grave!')
+        this.broadcastState()
+        break
+      }
+
+      case 'jackpot': {
+        const bonus = applyJackpot(this.state)
+        this.logAndBroadcast(`💎 The house adds ◆${bonus} to the pot! Total: ◆${this.state.pot}`)
+        this.broadcastState()
+        break
+      }
+
+      case 'sabotage': {
+        const exposed = applySabotage(this.state)
+        for (const { seatIndex, card } of exposed) {
+          this.broadcastAll({ type: 'CARD_EXPOSED', seatIndex, card })
+        }
+        this.logAndBroadcast("🗡️ Everyone's strongest card is exposed!")
+        this.broadcastState()
+        break
+      }
+
+      case 'fire-sale':
+        this.state.maxBetOverride = Number.MAX_SAFE_INTEGER
+        this.logAndBroadcast('🔥 All betting limits removed!')
+        this.broadcastState()
+        break
+
+      case 'blackout':
+        this.state.turnIsHidden = true
+        this.logAndBroadcast('🌑 The turn card will be hidden. Good luck.')
+        this.broadcastState()
+        break
+
+      case 'calm-waters':
+        this.logAndBroadcast('🌊 Calm Waters — no modifier this round.')
+        this.broadcastState()
+        break
+    }
+
+    this.startBetting3()
   }
 
   startBetting3(): void {
@@ -283,28 +376,22 @@ export class Room {
     this.promptCurrentPlayer()
   }
 
-  startRiver(): void {
-    this.setPhase('river')
-    const card = dealRiver(this.state)
-    this.broadcastAll({ type: 'COMMUNITY_CARDS', cards: this.state.communityCards })
-    this.dealAndSendHoleCard('River', card.display)
-    setTimeout(() => this.startDrop3Phase(), 600)
-  }
+  startTurn(): void {
+    this.setPhase('turn')
+    const card = dealTurn(this.state)
 
-  startDrop3Phase(): void {
-    this.setPhase('drop_3')
-    this.broadcastState()
-    this.logAndBroadcast('THE DROP (river) — choose a card to send to the drop zone')
-    const first = nextUndroppedSeat(this.state)
-    if (first !== -1) this.startDropTimer(first)
-  }
-
-  startDrop3Reveal(): void {
-    this.setPhase('drop_3_reveal')
-    revealDropZone(this.state)
-    this.broadcastAll({ type: 'DROP_REVEALED', dropZone: this.state.dropZone })
-    this.logAndBroadcast(`Drop zone: ${this.state.dropZone.map(c => c.display).join(' ')}`)
-    setTimeout(() => this.startBetting4(), 1200)
+    if (this.state.turnIsHidden) {
+      // Broadcast with masked card — server keeps real value for evaluation
+      this.broadcastAll({ type: 'COMMUNITY_CARDS', cards: [
+        ...this.state.communityCards.slice(0, 3),
+        { rankIndex: -1, suit: '?', display: '?' },
+      ]})
+      this.logAndBroadcast('Turn: [HIDDEN]')
+    } else {
+      this.broadcastAll({ type: 'COMMUNITY_CARDS', cards: this.state.communityCards })
+      this.logAndBroadcast(`Turn: ${card.display}`)
+    }
+    setTimeout(() => this.startBetting4(), 600)
   }
 
   startBetting4(): void {
@@ -314,9 +401,31 @@ export class Room {
     this.promptCurrentPlayer()
   }
 
+  startRiver(): void {
+    this.setPhase('river')
+    const card = dealRiver(this.state)
+    // River is always revealed (only turn is hidden)
+    this.broadcastAll({ type: 'COMMUNITY_CARDS', cards: this.state.communityCards })
+    this.logAndBroadcast(`River: ${card.display}`)
+    setTimeout(() => this.startBetting5(), 600)
+  }
+
+  startBetting5(): void {
+    this.setPhase('betting_5')
+    startBettingRound(this.state)
+    this.broadcastState()
+    this.promptCurrentPlayer()
+  }
+
   runShowdownPhase(): void {
     this.setPhase('showdown')
     this.clearTimer()
+
+    // If blackout, reveal the hidden turn card now
+    if (this.state.turnIsHidden) {
+      this.broadcastAll({ type: 'COMMUNITY_CARDS', cards: this.state.communityCards })
+      this.logAndBroadcast(`Turn revealed: ${this.state.communityCards[3]?.display ?? '?'}`)
+    }
 
     const reveals = this.state.seats
       .filter(s => !s.folded)
@@ -330,8 +439,13 @@ export class Room {
       allSeats: this.state.seats.map(seatToPublic),
     })
     this.logAndBroadcast(
-      winners.map(w => `${this.state.seats[w.seatIndex].displayName} wins ${w.potWon} chips with ${w.handName}`).join(' | ')
+      winners.map(w => `${this.state.seats[w.seatIndex].displayName} wins ◆${w.potWon} with ${w.handName}`).join(' | ')
     )
+
+    // Log chain lightning swap if applicable
+    if (this.state.activeBrew?.modifier === 'chain-lightning') {
+      this.logAndBroadcast('⚡ CHAIN LIGHTNING — stacks swapped!')
+    }
 
     setTimeout(() => this.endHand(), PAYOUT_PAUSE_MS)
   }
@@ -340,7 +454,6 @@ export class Room {
     this.setPhase('payout')
     this.broadcastAll({ type: 'STACKS_UPDATE', seats: this.state.seats.map(seatToPublic) })
 
-    // Remove players who are out
     const alive = this.state.seats.filter(s => s.stack > 0)
     if (alive.length < 2) {
       this.broadcastAll({ type: 'PHASE_CHANGE', phase: 'lobby' })
@@ -413,7 +526,6 @@ export class Room {
     })
     this.logAndBroadcast(`${seat.displayName} ${action.type}${action.type === 'raise' ? ` to ${seat.currentBet}` : ''}`)
 
-    // Check if only one player remains
     const notFolded = this.state.seats.filter(s => !s.folded)
     if (notFolded.length === 1) {
       this.runShowdownPhase()
@@ -432,12 +544,12 @@ export class Room {
   advanceBettingPhase(): void {
     switch (this.state.phase) {
       case 'betting_1': this.startFlop(); break
-      case 'betting_2': this.startTurn(); break
-      case 'betting_3': this.startRiver(); break
-      case 'betting_4': this.runShowdownPhase(); break
+      case 'betting_2': this.startDropPhase(); break
+      case 'betting_3': this.startTurn(); break
+      case 'betting_4': this.startRiver(); break
+      case 'betting_5': this.runShowdownPhase(); break
     }
   }
-
 
   // ─── Drop flow ───────────────────────────────────────────────────────────
 
@@ -454,12 +566,8 @@ export class Room {
     this.logAndBroadcast(`${seat.displayName} dropped a card`)
 
     if (allHaveDropped(this.state)) {
-      this.clearTimer()
-      if (this.state.phase === 'drop_1') this.startDrop1Reveal()
-      else if (this.state.phase === 'drop_2') this.startDrop2Reveal()
-      else this.startDrop3Reveal()
+      this.startBrewReveal()
     } else {
-      // Start timer for next person who hasn't dropped
       const next = nextUndroppedSeat(this.state)
       if (next !== -1) this.startDropTimer(next)
     }
@@ -475,7 +583,6 @@ export class Room {
     this.broadcastAll({ type: 'PLAYER_AWAY', seatIndex: seat.seatIndex, displayName: seat.displayName })
     this.logAndBroadcast(`${seat.displayName} disconnected`)
 
-    // If it was their turn, auto-act
     if (this.state.phase.startsWith('betting') && this.state.activeSeatIndex === seat.seatIndex) {
       this.clearTimer()
       const validActions = getValidActions(this.state, seat.seatIndex)
@@ -483,13 +590,12 @@ export class Room {
       this.processAction(seat.seatIndex, { type: autoAction as 'check' | 'fold' })
     }
 
-    if (['drop_1','drop_2','drop_3'].includes(this.state.phase) && !seat.hasDropped && !seat.folded) {
+    if (this.state.phase === 'drop' && !seat.hasDropped && !seat.folded) {
       this.clearTimer()
       const cardIndex = autoDropChoice(seat)
       this.processDrop(seat.seatIndex, cardIndex)
     }
 
-    // Schedule removal if in lobby
     if (this.state.phase === 'lobby') {
       scheduleExpiry(seat.sessionToken, RECONNECT_HOLD_MS)
     }

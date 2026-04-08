@@ -14,40 +14,49 @@ const SECTIONS: RuleSection[] = [
   {
     heading: 'The Goal',
     body: [
-      'Make the best 5-card poker hand using your 2 private hole cards plus the 5 community cards (flop, turn, river).',
+      'Make the best 5-card poker hand using your 2 kept hole cards plus the 5 community cards (flop, turn, river).',
     ],
   },
   {
     heading: 'Setup',
     body: [
-      'Every player antes $10 to enter the pot.',
-      'Each player is dealt 2 private hole cards.',
+      'Every player antes ◆10 to enter the pot.',
+      'Each player is dealt 3 private hole cards.',
     ],
   },
   {
     heading: 'Phase Order',
     body: [
-      '1. Pre-flop Betting — bet on your 2-card starting hand.',
-      '2. Flop — 3 community cards are revealed AND each player receives a new hole card (now holding 3).',
-      '3. THE DROP (Flop) — every player simultaneously picks one of their 3 cards to discard into the shared Drop Zone. All choices flip at once.',
-      '4. Post-Flop Betting.',
-      '5. Turn — the 4th community card is revealed AND each player receives a new hole card (3 again).',
-      '6. THE DROP (Turn) — another simultaneous drop.',
-      '7. Turn Betting.',
-      '8. River — the 5th community card is revealed AND each player receives a new hole card (3 again).',
-      '9. THE DROP (River) — final simultaneous drop.',
-      '10. River Betting.',
-      '11. Showdown — best 5-card hand from your 2 kept cards + 5 community cards wins the pot.',
+      '1. Pre-Flop Betting — bet on your 3-card starting hand.',
+      '2. Flop — 3 community cards are revealed.',
+      '3. Post-Flop Betting — bet before the drop.',
+      '4. THE DROP — all players secretly choose one of their 3 cards to discard. All reveal simultaneously.',
+      '5. THE BREW — the combination of dropped cards triggers a game-altering modifier.',
+      '6. Post-Brew Betting — bet knowing the modifier in effect.',
+      '7. Turn — the 4th community card (may be hidden by BLACKOUT).',
+      '8. Turn Betting.',
+      '9. River — the 5th community card.',
+      '10. Final Betting.',
+      '11. Showdown — best 5-card hand from your 2 kept cards + 5 community cards wins.',
     ],
   },
   {
-    heading: 'THE DROP (Signature Mechanic)',
+    heading: 'THE DROP',
     body: [
-      'The Drop happens three times per hand — at the flop, turn, and river.',
-      'Each time, you receive a new hole card (going from 2 to 3), then must choose one to discard into the shared Drop Zone.',
-      'All players drop simultaneously. Cards stay face-down until everyone has chosen, then flip all at once.',
-      'The Drop Zone is visible to everyone and grows throughout the hand — but dropped cards do NOT count toward any player\'s final hand.',
-      'If the timer runs out before you choose, the lowest-ranked card in your hand is auto-dropped.',
+      'Happens once per hand, after the flop + post-flop betting.',
+      'You hold 3 hole cards and must choose one to discard into the shared Drop Zone.',
+      'All players drop simultaneously — choices stay hidden until everyone has chosen.',
+      'The card you drop is gone from your hand. Dropped cards do NOT count toward your final hand.',
+      'If the timer runs out, your lowest-ranked card is auto-dropped.',
+    ],
+  },
+  {
+    heading: 'THE BREW',
+    body: [
+      'After all cards are dropped, The Brew analyzes the combination and triggers a modifier.',
+      'Rank patterns override suit patterns, which override color patterns.',
+      'Examples: all same rank → ☢️ NUKE (board wiped); hearts majority → 💔 BLEEDING POT (pot doubled, winner splits); all black → 🌑 BLACKOUT (turn card hidden).',
+      'Open the ⚗ Brew button during a game to see all 11 possible modifiers.',
     ],
   },
   {
@@ -58,7 +67,7 @@ const SECTIONS: RuleSection[] = [
       'Raise — increase the bet (others must call or fold).',
       'Fold — give up your hand and forfeit any chips already in the pot.',
       'All-In — bet all your remaining chips.',
-      'Each betting round has a 30-second turn timer. Auto-fold triggers on expiry.',
+      'Each betting round has a 30-second turn timer. Auto-check or auto-fold on expiry.',
     ],
   },
   {
@@ -72,7 +81,7 @@ const SECTIONS: RuleSection[] = [
     body: [
       'Create a room and share the 4-letter code with friends.',
       'The host clicks Start Game once everyone has joined.',
-      'If you disconnect during a hand, your seat is held for 60 seconds. Rejoin with the same room code to resume automatically.',
+      'If you disconnect during a hand, your seat is held for 60 seconds. Rejoin with the same room code to resume.',
     ],
   },
 ]
@@ -190,14 +199,14 @@ export function RulesModal({ open, onClose }: RulesModalProps) {
           </div>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
             {[
-              { label: 'Ante', sub: '$10' },
-              { label: 'Start Hand', sub: '2 cards' },
+              { label: 'Ante', sub: '◆10' },
+              { label: 'Start Hand', sub: '3 cards' },
               { label: 'At Drop', sub: '3 → 2' },
-              { label: 'Drops / Hand', sub: '3×' },
+              { label: 'Drops / Hand', sub: '1×' },
+              { label: 'Brew Modifiers', sub: '11' },
               { label: 'Community', sub: '5 cards' },
               { label: 'Drop Timer', sub: '20 s' },
               { label: 'Action Timer', sub: '30 s' },
-              { label: 'Max Players', sub: '6' },
             ].map(item => (
               <div
                 key={item.label}

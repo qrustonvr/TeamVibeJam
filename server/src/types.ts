@@ -1,5 +1,5 @@
 import type WebSocket from 'ws'
-import type { Card, DropPhase, PublicSeat, HandWinner } from '@shared/gameTypes.js'
+import type { Card, DropPhase, PublicSeat, HandWinner, BrewResult } from '@shared/gameTypes.js'
 
 export interface ServerSeat {
   seatIndex: number
@@ -13,6 +13,7 @@ export interface ServerSeat {
   hasDropped: boolean
   holeCards: [Card, Card, Card] | [Card, Card]
   droppedCard: Card | null
+  exposedCard: Card | null   // for Sabotage brew
   sessionToken: string
   ws: WebSocket | null
   lastAction: string | null
@@ -36,6 +37,11 @@ export interface ServerRoomState {
   lastActivityAt: number
   actionDeadline: number | null
   roundActedSeats: Set<number>
+  // Brew state
+  activeBrew: BrewResult | null
+  nextAnteMultiplier: number   // 1 normally, 2 if Royal Tax queued
+  turnIsHidden: boolean        // BLACKOUT: turn dealt face-down
+  maxBetOverride: number       // FIRE SALE: effectively Infinity
 }
 
 export interface BettingAction {
@@ -88,5 +94,6 @@ export function seatToPublic(seat: ServerSeat): PublicSeat {
     hasDropped: seat.hasDropped,
     cardCount: seat.holeCards.length,
     lastAction: seat.lastAction as (import('@shared/gameTypes.js').PlayerActionType | null),
+    exposedCard: seat.exposedCard,
   }
 }

@@ -1,15 +1,18 @@
-import type { PublicSeat } from '@shared/gameTypes'
+import type { PublicSeat, BrewResult } from '@shared/gameTypes'
 import type { HandWinner } from '@shared/gameTypes'
 import { CardView } from './CardView'
 
 interface ShowdownProps {
   winners: HandWinner[]
   seats: PublicSeat[]
+  activeBrew?: BrewResult | null
   onPlayAgain?: () => void
 }
 
-export function Showdown({ winners, seats, onPlayAgain }: ShowdownProps) {
+export function Showdown({ winners, seats, activeBrew, onPlayAgain }: ShowdownProps) {
   const winnerSeats = winners.map(w => seats.find(s => s.seatIndex === w.seatIndex))
+  const hasChainLightning = activeBrew?.modifier === 'chain-lightning'
+  const hasBleedingPot = activeBrew?.modifier === 'bleeding-pot'
 
   return (
     <div style={{
@@ -30,6 +33,16 @@ export function Showdown({ winners, seats, onPlayAgain }: ShowdownProps) {
       }}>
         SHOWDOWN
       </div>
+
+      {/* Active modifier reminder */}
+      {activeBrew && activeBrew.modifier !== 'calm-waters' && (
+        <div style={{
+          fontFamily: 'var(--font-body)', fontSize: 11,
+          color: 'rgba(255,255,255,0.5)', letterSpacing: 1,
+        }}>
+          {activeBrew.icon} {activeBrew.name} in effect
+        </div>
+      )}
 
       {winners.map((winner, i) => {
         const seat = winnerSeats[i]
@@ -59,15 +72,34 @@ export function Showdown({ winners, seats, onPlayAgain }: ShowdownProps) {
                 <CardView key={ci} card={card} small glowing />
               ))}
             </div>
-            <div style={{
-              fontFamily: 'var(--font-display)', color: '#22c55e',
-              fontSize: 16,
-            }}>
+            <div style={{ fontFamily: 'var(--font-display)', color: '#22c55e', fontSize: 16 }}>
               +◆ {winner.potWon}
             </div>
           </div>
         )
       })}
+
+      {/* Chain Lightning note */}
+      {hasChainLightning && (
+        <div style={{
+          fontFamily: 'var(--font-body)', fontSize: 12,
+          color: '#facc15',
+          textAlign: 'center', maxWidth: 240,
+        }}>
+          ⚡ CHAIN LIGHTNING — highest and lowest stacks swapped!
+        </div>
+      )}
+
+      {/* Bleeding Pot note */}
+      {hasBleedingPot && (
+        <div style={{
+          fontFamily: 'var(--font-body)', fontSize: 12,
+          color: '#f472b6',
+          textAlign: 'center', maxWidth: 240,
+        }}>
+          💔 BLEEDING POT — winner paid 50% to runner-up
+        </div>
+      )}
 
       {onPlayAgain && (
         <button

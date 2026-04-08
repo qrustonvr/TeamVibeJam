@@ -1,19 +1,40 @@
+// ─── Brew System ─────────────────────────────────────────────────────────────
+
+export type BrewModifier =
+  | 'nuke'
+  | 'chain-lightning'
+  | 'royal-tax'
+  | 'underdog'
+  | 'bleeding-pot'
+  | 'grave-dig'
+  | 'jackpot'
+  | 'sabotage'
+  | 'fire-sale'
+  | 'blackout'
+  | 'calm-waters'
+
+export interface BrewResult {
+  modifier: BrewModifier
+  name: string
+  description: string
+  icon: string
+}
+
+// ─── Phase types ──────────────────────────────────────────────────────────────
+
 export type DropPhase =
   | 'lobby'
   | 'deal'
-  | 'betting_1'      // pre-flop
-  | 'flop'           // 3 community cards + 1 hole card dealt to each player
-  | 'drop_1'         // simultaneous drop at flop
-  | 'drop_1_reveal'
-  | 'betting_2'      // post-flop
-  | 'turn'           // 1 community card + 1 hole card dealt to each player
-  | 'drop_2'         // simultaneous drop at turn
-  | 'drop_2_reveal'
-  | 'betting_3'      // turn betting
-  | 'river'          // 1 community card + 1 hole card dealt to each player
-  | 'drop_3'         // simultaneous drop at river
-  | 'drop_3_reveal'
-  | 'betting_4'      // river betting
+  | 'betting_1'    // pre-flop
+  | 'flop'
+  | 'betting_2'    // post-flop (BEFORE drop)
+  | 'drop'         // simultaneous drop
+  | 'brew_reveal'  // modifier revealed + applied
+  | 'betting_3'    // post-brew
+  | 'turn'
+  | 'betting_4'    // turn bet
+  | 'river'
+  | 'betting_5'    // river/final bet
   | 'showdown'
   | 'payout'
 
@@ -21,11 +42,15 @@ export type PlayerActionType = 'fold' | 'check' | 'call' | 'raise' | 'all-in'
 
 export type AIPersonality = 'tight' | 'aggressive' | 'balanced'
 
+// ─── Card ────────────────────────────────────────────────────────────────────
+
 export interface Card {
   rankIndex: number   // 0 = 2, 1 = 3, ... 8 = 10, 9 = J, 10 = Q, 11 = K, 12 = A
   suit: string        // ♠ ♥ ♦ ♣
   display: string     // e.g. "A♠", "10♦"
 }
+
+// ─── Seat types ───────────────────────────────────────────────────────────────
 
 export interface PublicSeat {
   seatIndex: number
@@ -36,14 +61,17 @@ export interface PublicSeat {
   folded: boolean
   allIn: boolean
   isConnected: boolean
-  hasDropped: boolean   // during drop phase: have they chosen?
-  cardCount: number     // 3 before drop, 2 after
+  hasDropped: boolean     // during drop phase: have they chosen?
+  cardCount: number       // 3 before drop, 2 after
   lastAction: PlayerActionType | null
+  exposedCard: Card | null  // for Sabotage brew: highest card flipped face-up
 }
 
 export interface PrivateSeat extends PublicSeat {
   holeCards: [Card, Card, Card] | [Card, Card]
 }
+
+// ─── Room snapshot ────────────────────────────────────────────────────────────
 
 export interface RoomSnapshot {
   roomCode: string
@@ -53,14 +81,19 @@ export interface RoomSnapshot {
   dropZone: Card[]
   pot: number
   currentBetLevel: number
-  activeSeatIndex: number   // whose turn (-1 = none)
+  activeSeatIndex: number    // whose turn (-1 = none)
   dealerIndex: number
   roundNumber: number
-  yourCards: Card[]         // this player's hole cards
+  yourCards: Card[]          // this player's hole cards
   yourSeatIndex: number
   actionDeadline: number | null  // unix ms
   hostSeatIndex: number
+  activeBrew: BrewResult | null  // active modifier for current hand
+  nextAnteMultiplier: number     // 1 normally, 2 if Royal Tax queued
+  turnIsHidden: boolean          // BLACKOUT: turn card dealt face-down
 }
+
+// ─── Showdown ─────────────────────────────────────────────────────────────────
 
 export interface HandWinner {
   seatIndex: number

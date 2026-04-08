@@ -1,9 +1,11 @@
-import type { DropPhase, PublicSeat, Card, HandWinner } from '@shared/gameTypes'
+import type { DropPhase, PublicSeat, Card, HandWinner, BrewResult } from '@shared/gameTypes'
 import { PlayerSeat } from './PlayerSeat'
 import { HoleCards } from './HoleCards'
 import { CommunityCards } from './CommunityCards'
 import { BettingControls } from './BettingControls'
 import { DropSelect } from './DropSelect'
+import { BrewReveal } from './BrewReveal'
+import { ActiveModifier } from './ActiveModifier'
 import { Showdown } from './Showdown'
 import { TimerBar } from './TimerBar'
 import { GameLog } from './GameLog'
@@ -24,6 +26,7 @@ interface TableViewProps {
   handWinners: HandWinner[] | null
   log: string[]
   dropsReceived?: number
+  activeBrew?: BrewResult | null
   onAction: (action: string, amount?: number) => void
   onDropCard: (cardIndex: number) => void
   onNextHand?: () => void
@@ -34,16 +37,19 @@ export function TableView({
   activeSeatIndex, yourCards, yourSeatIndex, isYourTurn, isYourDropTurn,
   actionDeadline, handWinners, log,
   dropsReceived = 0,
+  activeBrew,
   onAction, onDropCard, onNextHand,
 }: TableViewProps) {
   const mySeat = seats.find(s => s.seatIndex === yourSeatIndex)
   const otherSeats = seats.filter(s => s.seatIndex !== yourSeatIndex)
-  const isBettingPhase = ['betting_1','betting_2','betting_3','betting_4'].includes(phase)
-  const isDropPhase = phase === 'drop_1' || phase === 'drop_2' || phase === 'drop_3'
-  const dropPhaseNumber: 1 | 2 | 3 = phase === 'drop_3' ? 3 : phase === 'drop_2' ? 2 : 1
+  const isBettingPhase = ['betting_1','betting_2','betting_3','betting_4','betting_5'].includes(phase)
+  const isDropPhase = phase === 'drop'
+  const isBrewReveal = phase === 'brew_reveal'
   const isShowdown = phase === 'showdown' || phase === 'payout'
   const activeSeat = seats.find(s => s.seatIndex === activeSeatIndex)
   const totalDroppers = seats.filter(s => !s.folded).length
+  const isBlackout = activeBrew?.modifier === 'blackout'
+  const isFireSale = activeBrew?.modifier === 'fire-sale'
 
   return (
     <div style={{
@@ -51,6 +57,11 @@ export function TableView({
       display: 'flex', flexDirection: 'column',
       gap: 8, padding: 12,
       position: 'relative',
+      // Fire Sale: table border glow
+      outline: isFireSale ? '2px solid #fb923c' : 'none',
+      outlineOffset: -2,
+      boxShadow: isFireSale ? 'inset 0 0 30px rgba(251,146,60,0.15)' : 'none',
+      borderRadius: 12,
     }}>
       {/* Opponent seats */}
       <div style={{
@@ -67,9 +78,18 @@ export function TableView({
         ))}
       </div>
 
-      {/* Center: community + drop zone + pot */}
+      {/* Center: community + drop zone + pot + brew badge */}
       <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
-        <CommunityCards communityCards={communityCards} dropZone={dropZone} pot={pot} />
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
+          <CommunityCards
+            communityCards={communityCards}
+            dropZone={dropZone}
+            pot={pot}
+            turnIsHidden={isBlackout}
+          />
+          {/* Active modifier badge */}
+          {activeBrew && <ActiveModifier brew={activeBrew} />}
+        </div>
 
         {/* Drop select overlay */}
         {isDropPhase && (
@@ -79,9 +99,13 @@ export function TableView({
             dropsReceived={dropsReceived}
             totalDroppers={totalDroppers}
             deadline={isYourDropTurn ? actionDeadline : null}
-            dropPhase={dropPhaseNumber}
             onDrop={onDropCard}
           />
+        )}
+
+        {/* Brew reveal overlay */}
+        {isBrewReveal && activeBrew && (
+          <BrewReveal brew={activeBrew} dropZone={dropZone} />
         )}
 
         {/* Showdown overlay */}
@@ -89,6 +113,7 @@ export function TableView({
           <Showdown
             winners={handWinners}
             seats={seats}
+            activeBrew={activeBrew}
             onPlayAgain={onNextHand}
           />
         )}
@@ -110,6 +135,11 @@ export function TableView({
           <div style={{ display: 'flex', gap: 16, fontFamily: 'var(--font-body)', fontSize: 12 }}>
             <span style={{ color: 'var(--gold-dim)' }}>◆ {mySeat.stack}</span>
             {mySeat.currentBet > 0 && <span style={{ color: '#a3e635' }}>Bet: {mySeat.currentBet}</span>}
+            {mySeat.exposedCard && (
+              <span style={{ color: '#c084fc', fontSize: 11 }}>
+                🗡️ Exposed: {mySeat.exposedCard.display}
+              </span>
+            )}
           </div>
         )}
 
@@ -129,6 +159,7 @@ export function TableView({
             myCurrentBet={mySeat?.currentBet ?? 0}
             myStack={mySeat?.stack ?? 0}
             activeSeatName={activeSeat?.displayName}
+            activeBrew={activeBrew}
             onAction={onAction}
           />
         )}

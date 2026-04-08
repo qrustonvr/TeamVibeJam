@@ -1,18 +1,16 @@
 import { evaluatePlayerHand } from '@shared/handEvaluator.js'
-import type { Card, HandWinner } from '@shared/gameTypes.js'
+import type { Card, HandWinner, BrewResult } from '@shared/gameTypes.js'
 import { ANTE_AMOUNT } from '@shared/constants.js'
 import type { ServerRoomState, ServerSeat, BettingAction, ValidationResult } from './types.js'
 import { makeDeck, shuffleDeck } from './types.js'
 
-// ─── Helpers ────────────────────────────────────────────────────────────────
-
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function activeSeats(state: ServerRoomState): ServerSeat[] {
   return state.seats.filter(s => !s.folded)
 }
 
-
-// ─── Deal ────────────────────────────────────────────────────────────────────
+// ─── Deal ─────────────────────────────────────────────────────────────────────
 
 export function dealHand(state: ServerRoomState): void {
   state.deck = shuffleDeck(makeDeck())
@@ -21,6 +19,12 @@ export function dealHand(state: ServerRoomState): void {
   state.pot = 0
   state.currentBetLevel = ANTE_AMOUNT
   state.roundActedSeats = new Set()
+  state.activeBrew = null
+  state.turnIsHidden = false
+  state.maxBetOverride = 0
+
+  const anteAmount = ANTE_AMOUNT * state.nextAnteMultiplier
+  state.nextAnteMultiplier = 1  // reset after use
 
   for (const seat of state.seats) {
     seat.currentBet = 0
@@ -29,43 +33,25 @@ export function dealHand(state: ServerRoomState): void {
     seat.allIn = false
     seat.hasDropped = false
     seat.droppedCard = null
+    seat.exposedCard = null
     seat.lastAction = null
 
     // Deduct ante
-    const ante = Math.min(ANTE_AMOUNT, seat.stack)
+    const ante = Math.min(anteAmount, seat.stack)
     seat.stack -= ante
     seat.currentBet = ante
     seat.totalBetThisHand = ante
     state.pot += ante
 
-    // Deal 2 hole cards
+    // Deal 3 hole cards
     const c1 = state.deck.pop()!
     const c2 = state.deck.pop()!
-    seat.holeCards = [c1, c2]
+    const c3 = state.deck.pop()!
+    seat.holeCards = [c1, c2, c3]
   }
 }
 
-// ─── Deal extra hole card to each active player (at turn / river) ────────────
-
-export function dealCardToPlayers(state: ServerRoomState): Map<number, Card> {
-  const dealt = new Map<number, Card>()
-  for (const seat of state.seats) {
-    if (seat.folded) continue
-    const card = state.deck.pop()!
-    seat.holeCards = [...seat.holeCards, card] as [Card, Card, Card]
-    dealt.set(seat.seatIndex, card)
-  }
-  return dealt
-}
-
-export function resetDropState(state: ServerRoomState): void {
-  for (const seat of state.seats) {
-    seat.hasDropped = false
-    seat.droppedCard = null
-  }
-}
-
-// ─── Community card dealing ──────────────────────────────────────────────────
+// ─── Community card dealing ───────────────────────────────────────────────────
 
 export function dealFlop(state: ServerRoomState): Card[] {
   const cards = [state.deck.pop()!, state.deck.pop()!, state.deck.pop()!]
@@ -85,7 +71,7 @@ export function dealRiver(state: ServerRoomState): Card {
   return card
 }
 
-// ─── Betting ─────────────────────────────────────────────────────────────────
+// ─── Betting ──────────────────────────────────────────────────────────────────
 
 export function validateAction(
   state: ServerRoomState,
@@ -154,7 +140,6 @@ export function applyAction(
       state.pot += additional
       state.currentBetLevel = raiseTarget
       netAmount = additional
-      // Reset: all other active seats need to act again
       state.roundActedSeats = new Set([seatIndex])
       if (seat.stack === 0) seat.allIn = true
       seat.lastAction = 'raise'
@@ -188,7 +173,6 @@ export function applyAction(
 export function isBettingRoundComplete(state: ServerRoomState): boolean {
   const participating = state.seats.filter(s => !s.folded && !s.allIn)
   if (participating.length === 0) return true
-  // All must have acted and matched the current bet level
   for (const seat of participating) {
     if (!state.roundActedSeats.has(seat.seatIndex)) return false
     if (seat.currentBet < state.currentBetLevel) return false
@@ -198,12 +182,10 @@ export function isBettingRoundComplete(state: ServerRoomState): boolean {
 
 export function startBettingRound(state: ServerRoomState): void {
   state.roundActedSeats = new Set()
-  // Reset current bets but keep pot
   for (const seat of state.seats) {
     seat.currentBet = 0
   }
   state.currentBetLevel = 0
-  // Find first active seat after dealer
   let idx = (state.dealerIndex + 1) % state.seats.length
   const n = state.seats.length
   let found = false
@@ -230,7 +212,7 @@ export function nextBettingPlayer(state: ServerRoomState): void {
   state.activeSeatIndex = -1
 }
 
-// ─── Drop Phase ──────────────────────────────────────────────────────────────
+// ─── Drop Phase ───────────────────────────────────────────────────────────────
 
 export function applyDrop(state: ServerRoomState, seatIndex: number, cardIndex: 0 | 1 | 2): void {
   const seat = state.seats[seatIndex]
@@ -246,16 +228,87 @@ export function allHaveDropped(state: ServerRoomState): boolean {
   return activeSeats(state).every(s => s.hasDropped)
 }
 
-export function revealDropZone(state: ServerRoomState): void {
+export function collectDropZone(state: ServerRoomState): Card[] {
+  const dropped: Card[] = []
   for (const seat of state.seats) {
     if (seat.droppedCard) {
+      dropped.push(seat.droppedCard)
       state.dropZone.push(seat.droppedCard)
-      seat.droppedCard = null  // clear so the next drop phase starts fresh
+      seat.droppedCard = null
     }
   }
+  return dropped
 }
 
-// ─── Showdown ────────────────────────────────────────────────────────────────
+// ─── Brew effects ─────────────────────────────────────────────────────────────
+
+// Replace the first 3 community cards (flop) with new ones from the deck
+export function applyNuke(state: ServerRoomState): Card[] {
+  state.communityCards = state.communityCards.slice(3)  // keep turn/river if already dealt (won't be)
+  const newFlop = [state.deck.pop()!, state.deck.pop()!, state.deck.pop()!]
+  state.communityCards.unshift(...newFlop)
+  return newFlop
+}
+
+// Double the pot (house funds the match)
+export function applyBleedingPot(state: ServerRoomState): void {
+  state.pot *= 2
+}
+
+// Add 50% bonus to pot
+export function applyJackpot(state: ServerRoomState): number {
+  const bonus = Math.floor(state.pot * 0.5)
+  state.pot += bonus
+  return bonus
+}
+
+// Deal 1 card to every active player
+export function applyGraveDig(state: ServerRoomState): Map<number, Card> {
+  const dealt = new Map<number, Card>()
+  for (const seat of state.seats) {
+    if (seat.folded) continue
+    const card = state.deck.pop()!
+    seat.holeCards = [...seat.holeCards, card] as [Card, Card, Card]
+    dealt.set(seat.seatIndex, card)
+  }
+  return dealt
+}
+
+// Find weakest player, deal them 1 extra card. Returns seat index.
+export function applyUnderdog(state: ServerRoomState): { seatIndex: number; card: Card } | null {
+  const remaining = activeSeats(state)
+  if (remaining.length === 0) return null
+
+  // Evaluate each player's current hand strength
+  let weakestSeat = remaining[0]
+  let weakestScore = Infinity
+
+  for (const seat of remaining) {
+    const result = evaluatePlayerHand([...seat.holeCards], state.communityCards, [])
+    if (result.score < weakestScore) {
+      weakestScore = result.score
+      weakestSeat = seat
+    }
+  }
+
+  const card = state.deck.pop()!
+  weakestSeat.holeCards = [...weakestSeat.holeCards, card] as [Card, Card, Card]
+  return { seatIndex: weakestSeat.seatIndex, card }
+}
+
+// Expose each active player's highest-ranked hole card
+export function applySabotage(state: ServerRoomState): Array<{ seatIndex: number; card: Card }> {
+  const exposed: Array<{ seatIndex: number; card: Card }> = []
+  for (const seat of state.seats) {
+    if (seat.folded || seat.holeCards.length < 1) continue
+    const highest = [...seat.holeCards].reduce((a, b) => a.rankIndex > b.rankIndex ? a : b)
+    seat.exposedCard = highest
+    exposed.push({ seatIndex: seat.seatIndex, card: highest })
+  }
+  return exposed
+}
+
+// ─── Showdown ─────────────────────────────────────────────────────────────────
 
 export function runShowdown(state: ServerRoomState): HandWinner[] {
   const remaining = activeSeats(state)
@@ -273,11 +326,10 @@ export function runShowdown(state: ServerRoomState): HandWinner[] {
   }
 
   const evaluated = remaining.map(seat => {
-    // Drop zone no longer counts — hands use only hole cards + community cards
     const result = evaluatePlayerHand(
       [...seat.holeCards],
       state.communityCards,
-      [],
+      [],  // drop zone excluded from hand evaluation
     )
     return { seat, result }
   })
@@ -286,24 +338,54 @@ export function runShowdown(state: ServerRoomState): HandWinner[] {
   const topScore = evaluated[0].result.score
   const winners = evaluated.filter(e => e.result.score === topScore)
 
-  const share = Math.floor(state.pot / winners.length)
-  const remainder = state.pot - share * winners.length
+  let pot = state.pot
+
+  // BLEEDING POT: winner gives 50% of their winnings to runner-up
+  let bleedingPotRunnerUp: ServerSeat | null = null
+  if (state.activeBrew?.modifier === 'bleeding-pot' && evaluated.length > 1) {
+    bleedingPotRunnerUp = evaluated.find(e => e.result.score < topScore)?.seat ?? null
+  }
+
+  const share = Math.floor(pot / winners.length)
+  const remainder = pot - share * winners.length
 
   const handWinners: HandWinner[] = winners.map((w, i) => {
     const potWon = share + (i === 0 ? remainder : 0)
-    w.seat.stack += potWon
+    let actualWon = potWon
+
+    // BLEEDING POT: winner pays 50% to runner-up
+    if (bleedingPotRunnerUp && i === 0) {
+      const splitAmount = Math.floor(potWon * 0.5)
+      actualWon -= splitAmount
+      bleedingPotRunnerUp.stack += splitAmount
+    }
+
+    w.seat.stack += actualWon
     return {
       seatIndex: w.seat.seatIndex,
       handName: w.result.name,
       score: w.result.score,
-      potWon,
+      potWon: actualWon,
       holeCards: [...w.seat.holeCards],
       bestHandCards: w.result.cards,
     }
   })
 
+  // CHAIN LIGHTNING: swap chip stacks of highest and lowest hands
+  if (state.activeBrew?.modifier === 'chain-lightning' && evaluated.length > 1) {
+    const highest = evaluated[evaluated.length - 1].seat
+    const lowest = evaluated[0].seat
+    if (highest.seatIndex !== lowest.seatIndex) {
+      const temp = highest.stack
+      highest.stack = lowest.stack
+      lowest.stack = temp
+    }
+  }
+
   return handWinners
 }
+
+// ─── Misc helpers ─────────────────────────────────────────────────────────────
 
 export function getValidActions(state: ServerRoomState, seatIndex: number): string[] {
   const seat = state.seats[seatIndex]
@@ -336,7 +418,6 @@ export function anyActivePlayersHaveChips(state: ServerRoomState): boolean {
 }
 
 export function autoDropChoice(seat: ServerSeat): 0 | 1 | 2 {
-  // Only called during drop phases when player has exactly 3 hole cards
   const cards = seat.holeCards
   if (cards.length < 3) return 0
   let minIdx = 0
@@ -350,10 +431,13 @@ export function autoDropChoice(seat: ServerSeat): 0 | 1 | 2 {
   return minIdx as 0 | 1 | 2
 }
 
-// Get index of next seat that hasn't dropped yet (for AI-style auto-drop)
 export function nextUndroppedSeat(state: ServerRoomState): number {
   for (const seat of state.seats) {
     if (!seat.folded && !seat.hasDropped) return seat.seatIndex
   }
   return -1
+}
+
+export function getActiveBrew(state: ServerRoomState): BrewResult | null {
+  return state.activeBrew
 }
