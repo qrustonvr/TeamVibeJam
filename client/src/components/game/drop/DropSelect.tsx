@@ -9,10 +9,12 @@ interface DropSelectProps {
   dropsReceived: number
   totalDroppers: number
   deadline: number | null
+  dropPhase: 1 | 2
   onDrop: (cardIndex: number) => void
 }
 
-export function DropSelect({ cards, hasDropped, dropsReceived, totalDroppers, deadline, onDrop }: DropSelectProps) {
+export function DropSelect({ cards, hasDropped, dropsReceived, totalDroppers, deadline, dropPhase, onDrop }: DropSelectProps) {
+  const label = dropPhase === 1 ? '✦ THE DROP — TURN ✦' : '✦ THE DROP — RIVER ✦'
   return (
     <div style={{
       position: 'absolute', inset: 0,
@@ -31,7 +33,7 @@ export function DropSelect({ cards, hasDropped, dropsReceived, totalDroppers, de
         textShadow: '0 0 20px var(--gold)',
         animation: 'glow 2.5s ease-in-out infinite',
       }}>
-        ✦ THE DROP ✦
+        {label}
       </div>
 
       {!hasDropped ? (

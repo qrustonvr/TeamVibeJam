@@ -208,7 +208,7 @@ function handleMessage(ws: WebSocket, msg: ClientMessage): void {
       if (!room) return
       const seat = room.findSeatByWs(ws)
       if (!seat) return
-      if (room.state.phase !== 'drop') {
+      if (room.state.phase !== 'drop_1' && room.state.phase !== 'drop_2') {
         sendError(ws, 'INVALID_PHASE', 'Not in drop phase')
         return
       }

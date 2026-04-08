@@ -14,39 +14,39 @@ const SECTIONS: RuleSection[] = [
   {
     heading: 'The Goal',
     body: [
-      'Make the best 5-card poker hand using any combination of your 2 kept hole cards, the 5 community cards (flop, turn, river), and any cards in the Drop Zone.',
+      'Make the best 5-card poker hand using your 2 private hole cards plus the 5 community cards (flop, turn, river).',
     ],
   },
   {
     heading: 'Setup',
     body: [
       'Every player antes $10 to enter the pot.',
-      'Each player is dealt 3 private hole cards.',
+      'Each player is dealt 2 private hole cards.',
     ],
   },
   {
     heading: 'Phase Order',
     body: [
-      '1. Pre-flop Betting — bet on your 3-card starting hand.',
+      '1. Pre-flop Betting — bet on your 2-card starting hand.',
       '2. Flop — 3 community cards are revealed.',
-      '3. The Drop — every player secretly selects one hole card to discard into the shared Drop Zone. All drops are simultaneous; no one sees your choice until all players have dropped.',
-      '4. Drop Reveal — the Drop Zone cards flip face-up for everyone to see.',
-      '5. Post-Drop Betting — bet knowing the Drop Zone.',
-      '6. Turn — a 4th community card is revealed.',
-      '7. Turn Betting.',
-      '8. River — the 5th community card is revealed.',
+      '3. Post-Flop Betting.',
+      '4. Turn — the 4th community card is revealed AND each player receives a new hole card (now holding 3).',
+      '5. THE DROP (Turn) — every player simultaneously picks one of their 3 cards to discard face-down into the shared Drop Zone. Choices are hidden until everyone has dropped, then all flip at once.',
+      '6. Turn Betting — bet with knowledge of the Drop Zone.',
+      '7. River — the 5th community card is revealed AND each player receives another new hole card (3 cards again).',
+      '8. THE DROP (River) — another simultaneous drop into the Drop Zone.',
       '9. River Betting.',
-      '10. Showdown — best hand wins the pot.',
+      '10. Showdown — best 5-card hand from your 2 kept cards + 5 community cards wins the pot.',
     ],
   },
   {
-    heading: 'The Drop (Signature Mechanic)',
+    heading: 'THE DROP (Signature Mechanic)',
     body: [
-      'During the Drop phase you must choose exactly one of your 3 hole cards to place face-down into the shared Drop Zone.',
-      'All players drop simultaneously — the choices are hidden until everyone has dropped, then all Drop Zone cards flip at once.',
-      'The Drop Zone is shared: every player can use those cards when building their final hand.',
-      'You keep the other 2 hole cards as your private cards.',
-      'If the timer runs out before you choose, the lowest-ranked card in your hand is dropped automatically.',
+      'The Drop happens twice per hand — once at the turn, once at the river.',
+      'Each time, you receive a new hole card (going from 2 to 3), then must choose one to discard into the shared Drop Zone.',
+      'All players drop simultaneously. Cards stay face-down until everyone has chosen, then flip all at once.',
+      'The Drop Zone is visible to everyone and grows throughout the hand — but dropped cards do NOT count toward any player\'s final hand.',
+      'If the timer runs out before you choose, the lowest-ranked card in your hand is auto-dropped.',
     ],
   },
   {
@@ -190,9 +190,9 @@ export function RulesModal({ open, onClose }: RulesModalProps) {
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
             {[
               { label: 'Ante', sub: '$10' },
-              { label: 'Hole Cards', sub: '3 dealt' },
-              { label: 'Kept', sub: '2 cards' },
-              { label: 'Drop Zone', sub: 'shared pool' },
+              { label: 'Start Hand', sub: '2 cards' },
+              { label: 'At Drop', sub: '3 → 2' },
+              { label: 'Drops / Hand', sub: '2×' },
               { label: 'Community', sub: '5 cards' },
               { label: 'Drop Timer', sub: '20 s' },
               { label: 'Action Timer', sub: '30 s' },

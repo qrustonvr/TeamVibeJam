@@ -1,15 +1,17 @@
 export type DropPhase =
   | 'lobby'
   | 'deal'
-  | 'betting_1'
+  | 'betting_1'      // pre-flop
   | 'flop'
-  | 'drop'
-  | 'drop_reveal'
-  | 'betting_2'
-  | 'turn'
-  | 'betting_3'
-  | 'river'
-  | 'betting_4'
+  | 'betting_2'      // post-flop
+  | 'turn'           // community turn + 1 hole card dealt to each player
+  | 'drop_1'         // simultaneous drop at turn
+  | 'drop_1_reveal'
+  | 'betting_3'      // turn betting
+  | 'river'          // community river + 1 hole card dealt to each player
+  | 'drop_2'         // simultaneous drop at river
+  | 'drop_2_reveal'
+  | 'betting_4'      // river betting
   | 'showdown'
   | 'payout'
 

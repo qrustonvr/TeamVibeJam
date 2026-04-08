@@ -38,11 +38,30 @@ export function dealHand(state: ServerRoomState): void {
     seat.totalBetThisHand = ante
     state.pot += ante
 
-    // Deal 3 hole cards
+    // Deal 2 hole cards
     const c1 = state.deck.pop()!
     const c2 = state.deck.pop()!
-    const c3 = state.deck.pop()!
-    seat.holeCards = [c1, c2, c3]
+    seat.holeCards = [c1, c2]
+  }
+}
+
+// ─── Deal extra hole card to each active player (at turn / river) ────────────
+
+export function dealCardToPlayers(state: ServerRoomState): Map<number, Card> {
+  const dealt = new Map<number, Card>()
+  for (const seat of state.seats) {
+    if (seat.folded) continue
+    const card = state.deck.pop()!
+    seat.holeCards = [...seat.holeCards, card] as [Card, Card, Card]
+    dealt.set(seat.seatIndex, card)
+  }
+  return dealt
+}
+
+export function resetDropState(state: ServerRoomState): void {
+  for (const seat of state.seats) {
+    seat.hasDropped = false
+    seat.droppedCard = null
   }
 }
 
@@ -231,6 +250,7 @@ export function revealDropZone(state: ServerRoomState): void {
   for (const seat of state.seats) {
     if (seat.droppedCard) {
       state.dropZone.push(seat.droppedCard)
+      seat.droppedCard = null  // clear so the next drop phase starts fresh
     }
   }
 }
@@ -253,10 +273,11 @@ export function runShowdown(state: ServerRoomState): HandWinner[] {
   }
 
   const evaluated = remaining.map(seat => {
+    // Drop zone no longer counts — hands use only hole cards + community cards
     const result = evaluatePlayerHand(
       [...seat.holeCards],
       state.communityCards,
-      state.dropZone,
+      [],
     )
     return { seat, result }
   })
@@ -315,7 +336,9 @@ export function anyActivePlayersHaveChips(state: ServerRoomState): boolean {
 }
 
 export function autoDropChoice(seat: ServerSeat): 0 | 1 | 2 {
-  const cards = seat.holeCards as [Card, Card, Card]
+  // Only called during drop phases when player has exactly 3 hole cards
+  const cards = seat.holeCards
+  if (cards.length < 3) return 0
   let minIdx = 0
   let minRank = cards[0].rankIndex
   for (let i = 1; i < 3; i++) {

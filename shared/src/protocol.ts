@@ -20,7 +20,7 @@ export type ServerMessage =
   | { type: 'PLAYER_LEFT';        seatIndex: number; seats: PublicSeat[] }
   | { type: 'GAME_STARTING';      countdown: number }
   | { type: 'PHASE_CHANGE';       phase: DropPhase }
-  | { type: 'HOLE_CARDS';         seatIndex: number; cards: [Card, Card, Card] }
+  | { type: 'HOLE_CARDS';         seatIndex: number; cards: Card[] }
   | { type: 'HOLE_CARDS_DEALT';   seatIndex: number }
   | { type: 'TURN_START';         seatIndex: number; deadline: number; toCall: number; minRaise: number; pot: number; validActions: string[] }
   | { type: 'DROP_PROMPT';        deadline: number }

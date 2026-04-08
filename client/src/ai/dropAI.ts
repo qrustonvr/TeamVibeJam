@@ -4,7 +4,6 @@ import type { Card, AIPersonality } from '@shared/gameTypes'
 export interface AIGameContext {
   holeCards: Card[]
   communityCards: Card[]
-  dropZone: Card[]
   pot: number
   currentBetLevel: number
   myCurrentBet: number
@@ -21,13 +20,13 @@ export interface AIDecision {
 // Normalize to 0..1
 const MAX_SCORE = 6_725_892
 
-function handStrength(holeCards: Card[], communityCards: Card[], dropZone: Card[]): number {
-  const result = best5of([...holeCards, ...communityCards, ...dropZone])
+function handStrength(holeCards: Card[], communityCards: Card[]): number {
+  const result = best5of([...holeCards, ...communityCards])
   return result.score / MAX_SCORE
 }
 
 export function computeAIAction(ctx: AIGameContext): AIDecision {
-  const strength = handStrength(ctx.holeCards, ctx.communityCards, ctx.dropZone)
+  const strength = handStrength(ctx.holeCards, ctx.communityCards)
   const toCall = ctx.currentBetLevel - ctx.myCurrentBet
   const canCheck = toCall === 0
   const potOdds = toCall / (ctx.pot + toCall) || 0

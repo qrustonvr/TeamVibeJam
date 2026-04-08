@@ -24,8 +24,9 @@ export interface LocalSeat {
 }
 
 type DropPhaseLocal =
-  | 'lobby' | 'deal' | 'betting_1' | 'flop' | 'drop' | 'drop_reveal'
-  | 'betting_2' | 'turn' | 'betting_3' | 'river' | 'betting_4'
+  | 'lobby' | 'deal' | 'betting_1' | 'flop' | 'betting_2'
+  | 'turn' | 'drop_1' | 'drop_1_reveal' | 'betting_3'
+  | 'river' | 'drop_2' | 'drop_2_reveal' | 'betting_4'
   | 'showdown' | 'payout'
 
 interface LocalGameState {
@@ -49,8 +50,8 @@ type LocalAction =
   | { type: 'START_BETTING_ROUND'; phase: DropPhaseLocal }
   | { type: 'SET_PHASE'; phase: DropPhaseLocal }
   | { type: 'DEAL_FLOP' }
-  | { type: 'DEAL_TURN' }
-  | { type: 'DEAL_RIVER' }
+  | { type: 'DEAL_TURN_WITH_CARD' }    // community turn card + 1 hole card to each player
+  | { type: 'DEAL_RIVER_WITH_CARD' }   // community river card + 1 hole card to each player
   | { type: 'PLAYER_ACTION'; seatIndex: number; action: string; amount?: number }
   | { type: 'PLAYER_DROP'; seatIndex: number; cardIndex: number }
   | { type: 'REVEAL_DROP_ZONE' }
@@ -113,7 +114,6 @@ function isBettingComplete(state: LocalGameState): boolean {
   return true
 }
 
-// Reset bets and find first active player for a new betting round
 function applyStartBettingRound(state: LocalGameState): LocalGameState {
   const seats = state.seats.map(s => ({ ...s, currentBet: 0 }))
   const firstActive = firstActiveAfterDealer(seats, state.dealerIndex)
@@ -167,9 +167,10 @@ function reducer(state: LocalGameState, action: LocalAction): LocalGameState {
     case 'START_HAND': {
       let deck = shuffle(makeDeck())
       let pot = 0
+      // Deal 2 hole cards per player
       const seats = state.seats.map(seat => {
         const ante = Math.min(ANTE_AMOUNT, seat.stack)
-        const { cards, remaining } = drawCards(deck, 3)
+        const { cards, remaining } = drawCards(deck, 2)
         deck = remaining
         pot += ante
         return {
@@ -201,7 +202,6 @@ function reducer(state: LocalGameState, action: LocalAction): LocalGameState {
       }
     }
 
-    // Transition to a new betting phase and reset bets/acted-seats/active player
     case 'START_BETTING_ROUND': {
       const next = applyStartBettingRound(state)
       return { ...next, phase: action.phase }
@@ -210,20 +210,57 @@ function reducer(state: LocalGameState, action: LocalAction): LocalGameState {
     case 'SET_PHASE':
       return { ...state, phase: action.phase }
 
-    // Deal community cards AND update phase — prevents infinite re-deal loop
     case 'DEAL_FLOP': {
       const { cards, remaining } = drawCards(state.deck, 3)
       return { ...state, deck: remaining, communityCards: cards, phase: 'flop' }
     }
 
-    case 'DEAL_TURN': {
-      const { cards, remaining } = drawCards(state.deck, 1)
-      return { ...state, deck: remaining, communityCards: [...state.communityCards, ...cards], phase: 'turn' }
+    // Deal 1 community card AND 1 hole card to every non-folded player, then go to 'turn'
+    case 'DEAL_TURN_WITH_CARD': {
+      const { cards: commCards, remaining: r1 } = drawCards(state.deck, 1)
+      let deckRemaining = r1
+      const seats = state.seats.map(seat => {
+        if (seat.folded) return seat
+        const { cards: newCard, remaining: r2 } = drawCards(deckRemaining, 1)
+        deckRemaining = r2
+        return {
+          ...seat,
+          holeCards: [...seat.holeCards, ...newCard],
+          hasDropped: false,
+          droppedCard: null,
+        }
+      })
+      return {
+        ...state,
+        deck: deckRemaining,
+        communityCards: [...state.communityCards, ...commCards],
+        seats,
+        phase: 'turn',
+      }
     }
 
-    case 'DEAL_RIVER': {
-      const { cards, remaining } = drawCards(state.deck, 1)
-      return { ...state, deck: remaining, communityCards: [...state.communityCards, ...cards], phase: 'river' }
+    // Deal 1 community card AND 1 hole card to every non-folded player, then go to 'river'
+    case 'DEAL_RIVER_WITH_CARD': {
+      const { cards: commCards, remaining: r1 } = drawCards(state.deck, 1)
+      let deckRemaining = r1
+      const seats = state.seats.map(seat => {
+        if (seat.folded) return seat
+        const { cards: newCard, remaining: r2 } = drawCards(deckRemaining, 1)
+        deckRemaining = r2
+        return {
+          ...seat,
+          holeCards: [...seat.holeCards, ...newCard],
+          hasDropped: false,
+          droppedCard: null,
+        }
+      })
+      return {
+        ...state,
+        deck: deckRemaining,
+        communityCards: [...state.communityCards, ...commCards],
+        seats,
+        phase: 'river',
+      }
     }
 
     case 'PLAYER_ACTION': {
@@ -264,7 +301,7 @@ function reducer(state: LocalGameState, action: LocalAction): LocalGameState {
           currentBetLevel = raiseTarget
           if (seat.stack === 0) seat.allIn = true
           seat.lastAction = 'raise'
-          roundActedSeats = [seatIndex]   // raise resets: others must act again
+          roundActedSeats = [seatIndex]
           seats[seatIndex] = seat
           const nextAfterRaise = nextActivePlayerAfter(seats, seatIndex)
           return { ...state, seats, pot, currentBetLevel, roundActedSeats, activeSeatIndex: nextAfterRaise }
@@ -295,14 +332,12 @@ function reducer(state: LocalGameState, action: LocalAction): LocalGameState {
         return { ...state, seats, pot, currentBetLevel, roundActedSeats, phase: 'showdown', activeSeatIndex: -1 }
       }
 
-      // Check if this betting round is now complete
+      // Check if this betting round is complete
       const tempState = { ...state, seats, pot, currentBetLevel, roundActedSeats }
       if (isBettingComplete(tempState)) {
-        // Set activeSeatIndex to -1 — the phase-advance effect will detect this
         return { ...state, seats, pot, currentBetLevel, roundActedSeats, activeSeatIndex: -1 }
       }
 
-      // Advance to next player
       const next = nextActivePlayerAfter(seats, seatIndex)
       return { ...state, seats, pot, currentBetLevel, roundActedSeats, activeSeatIndex: next }
     }
@@ -320,10 +355,14 @@ function reducer(state: LocalGameState, action: LocalAction): LocalGameState {
     }
 
     case 'REVEAL_DROP_ZONE': {
-      const dropZone = state.seats
+      // Accumulate newly dropped cards into the drop zone, then clear droppedCard
+      const newDropCards = state.seats
         .filter(s => !s.folded && s.droppedCard)
         .map(s => s.droppedCard!)
-      return { ...state, dropZone, phase: 'drop_reveal' }
+      const dropZone = [...state.dropZone, ...newDropCards]
+      const revealPhase: DropPhaseLocal = state.phase === 'drop_1' ? 'drop_1_reveal' : 'drop_2_reveal'
+      const seats = state.seats.map(s => ({ ...s, droppedCard: null }))
+      return { ...state, dropZone, seats, phase: revealPhase }
     }
 
     case 'RUN_SHOWDOWN': {
@@ -340,8 +379,9 @@ function reducer(state: LocalGameState, action: LocalAction): LocalGameState {
         }
       }
 
+      // Drop zone does NOT count — hands use hole cards + community cards only
       const evaluated = remaining.map(seat => {
-        const result = best5of([...seat.holeCards, ...state.communityCards, ...state.dropZone])
+        const result = best5of([...seat.holeCards, ...state.communityCards])
         return { seat, result }
       }).sort((a, b) => b.result.score - a.result.score)
 
@@ -405,57 +445,67 @@ export function useDropGame() {
     phaseTimerRef.current = setTimeout(fn, ms)
   }, [clearPhaseTimer])
 
-  // ─── Phase-based transitions (fire only when phase changes) ───────────────
+  // ─── Phase-based transitions ──────────────────────────────────────────────
 
+  // deal → start pre-flop betting
   useEffect(() => {
     if (state.phase === 'deal') {
-      // Deal animation pause, then start pre-flop betting
       schedulePhase(() => dispatch({ type: 'START_BETTING_ROUND', phase: 'betting_1' }), 800)
     }
   }, [state.phase, schedulePhase])
 
+  // flop revealed → start post-flop betting
   useEffect(() => {
-    // After the flop is dealt (phase set to 'flop'), transition to drop phase
     if (state.phase === 'flop') {
-      schedulePhase(() => dispatch({ type: 'SET_PHASE', phase: 'drop' }), 800)
+      schedulePhase(() => dispatch({ type: 'START_BETTING_ROUND', phase: 'betting_2' }), 800)
     }
   }, [state.phase, schedulePhase])
 
+  // turn dealt → transition to drop_1
   useEffect(() => {
-    if (state.phase === 'drop') {
-      // Check if all active players have dropped (handles case where AI already dropped)
-      const allDropped = state.seats.filter(s => !s.folded).every(s => s.hasDropped)
-      if (allDropped) {
-        schedulePhase(() => dispatch({ type: 'REVEAL_DROP_ZONE' }), 300)
-      }
+    if (state.phase === 'turn') {
+      schedulePhase(() => dispatch({ type: 'SET_PHASE', phase: 'drop_1' }), 600)
+    }
+  }, [state.phase, schedulePhase])
+
+  // river dealt → transition to drop_2
+  useEffect(() => {
+    if (state.phase === 'river') {
+      schedulePhase(() => dispatch({ type: 'SET_PHASE', phase: 'drop_2' }), 600)
+    }
+  }, [state.phase, schedulePhase])
+
+  // drop_1 or drop_2: watch for all players having dropped
+  useEffect(() => {
+    if (state.phase !== 'drop_1' && state.phase !== 'drop_2') return
+    const allDropped = state.seats.filter(s => !s.folded).every(s => s.hasDropped)
+    if (allDropped) {
+      schedulePhase(() => dispatch({ type: 'REVEAL_DROP_ZONE' }), 300)
     }
   }, [state.phase, state.seats, schedulePhase])
 
+  // drop_1_reveal → turn betting
   useEffect(() => {
-    if (state.phase === 'drop_reveal') {
-      schedulePhase(() => dispatch({ type: 'START_BETTING_ROUND', phase: 'betting_2' }), 1500)
+    if (state.phase === 'drop_1_reveal') {
+      schedulePhase(() => dispatch({ type: 'START_BETTING_ROUND', phase: 'betting_3' }), 1500)
     }
   }, [state.phase, schedulePhase])
 
+  // drop_2_reveal → river betting
   useEffect(() => {
-    if (state.phase === 'turn') {
-      schedulePhase(() => dispatch({ type: 'START_BETTING_ROUND', phase: 'betting_3' }), 600)
+    if (state.phase === 'drop_2_reveal') {
+      schedulePhase(() => dispatch({ type: 'START_BETTING_ROUND', phase: 'betting_4' }), 1500)
     }
   }, [state.phase, schedulePhase])
 
-  useEffect(() => {
-    if (state.phase === 'river') {
-      schedulePhase(() => dispatch({ type: 'START_BETTING_ROUND', phase: 'betting_4' }), 600)
-    }
-  }, [state.phase, schedulePhase])
-
+  // showdown → run the evaluation
   useEffect(() => {
     if (state.phase === 'showdown') {
       schedulePhase(() => dispatch({ type: 'RUN_SHOWDOWN' }), 600)
     }
   }, [state.phase, schedulePhase])
 
-  // ─── Betting round complete: activeSeatIndex === -1 in a betting phase ────
+  // ─── Betting round complete: activeSeatIndex === -1 ───────────────────────
 
   useEffect(() => {
     if (state.activeSeatIndex !== -1) return
@@ -464,10 +514,10 @@ export function useDropGame() {
         schedulePhase(() => dispatch({ type: 'DEAL_FLOP' }), 400)
         break
       case 'betting_2':
-        schedulePhase(() => dispatch({ type: 'DEAL_TURN' }), 400)
+        schedulePhase(() => dispatch({ type: 'DEAL_TURN_WITH_CARD' }), 400)
         break
       case 'betting_3':
-        schedulePhase(() => dispatch({ type: 'DEAL_RIVER' }), 400)
+        schedulePhase(() => dispatch({ type: 'DEAL_RIVER_WITH_CARD' }), 400)
         break
       case 'betting_4':
         schedulePhase(() => dispatch({ type: 'RUN_SHOWDOWN' }), 400)
@@ -507,7 +557,7 @@ export function useDropGame() {
     const delay = 800 + Math.random() * 1200
     const t = setTimeout(() => {
       const s = stateRef.current
-      if (s.activeSeatIndex !== activeSeatIndex) return   // someone else's turn now
+      if (s.activeSeatIndex !== activeSeatIndex) return
       if (!['betting_1','betting_2','betting_3','betting_4'].includes(s.phase)) return
 
       const currentSeat = s.seats[activeSeatIndex]
@@ -516,7 +566,6 @@ export function useDropGame() {
       const decision = computeAIAction({
         holeCards: currentSeat.holeCards,
         communityCards: s.communityCards,
-        dropZone: s.dropZone,
         pot: s.pot,
         currentBetLevel: s.currentBetLevel,
         myCurrentBet: currentSeat.currentBet,
@@ -529,17 +578,17 @@ export function useDropGame() {
     return () => clearTimeout(t)
   }, [state.activeSeatIndex, state.phase])
 
-  // ─── AI drop turns ────────────────────────────────────────────────────────
+  // ─── AI drop turns (drop_1 and drop_2) ───────────────────────────────────
 
   useEffect(() => {
-    if (state.phase !== 'drop') return
+    if (state.phase !== 'drop_1' && state.phase !== 'drop_2') return
     const aiPending = state.seats.find(s => s.isAI && !s.hasDropped && !s.folded)
     if (!aiPending) return
 
     const delay = 600 + Math.random() * 1000
     const t = setTimeout(() => {
       const s = stateRef.current
-      if (s.phase !== 'drop') return
+      if (s.phase !== 'drop_1' && s.phase !== 'drop_2') return
       const seat = s.seats[aiPending.seatIndex]
       if (!seat || seat.hasDropped || seat.folded || seat.holeCards.length !== 3) return
 
@@ -560,7 +609,7 @@ export function useDropGame() {
     ['betting_1','betting_2','betting_3','betting_4'].includes(state.phase)
 
   const isYourDropTurn =
-    state.phase === 'drop' &&
+    (state.phase === 'drop_1' || state.phase === 'drop_2') &&
     !(state.seats[0]?.hasDropped ?? true) &&
     !(state.seats[0]?.folded ?? true)
 
