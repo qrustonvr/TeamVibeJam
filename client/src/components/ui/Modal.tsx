@@ -6,9 +6,10 @@ interface ModalProps {
   onClose: () => void
   title?: string
   children: ReactNode
+  panelClassName?: string
 }
 
-export function Modal({ open, onClose, title, children }: ModalProps) {
+export function Modal({ open, onClose, title, children, panelClassName }: ModalProps) {
   useEffect(() => {
     if (!open) return
     const handler = (e: KeyboardEvent) => {
@@ -33,7 +34,7 @@ export function Modal({ open, onClose, title, children }: ModalProps) {
       />
       {/* Panel */}
       <div
-        className="relative z-10 w-full max-w-md mx-4 rounded-lg overflow-hidden"
+        className={`relative z-10 w-full mx-4 rounded-lg overflow-hidden ${panelClassName ?? 'max-w-md'}`}
         style={{
           background: 'linear-gradient(160deg, #0d1f0d 0%, #0a1a0a 100%)',
           border: '1px solid var(--gold-dim)',
