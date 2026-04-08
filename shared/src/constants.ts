@@ -1,0 +1,11 @@
+export const ANTE_AMOUNT = 10
+export const DROP_TIMER_MS = 20_000
+export const ACTION_TIMER_MS = 30_000
+export const MAX_PLAYERS = 6
+export const MIN_PLAYERS = 2
+export const RECONNECT_HOLD_MS = 60_000
+export const ROOM_IDLE_CLEANUP_MS = 30 * 60_000
+export const MAX_ROOMS = 50
+export const PAYOUT_PAUSE_MS = 4_000
+
+export const POT_BET_FRACTIONS = [0.5, 1, 2] as const

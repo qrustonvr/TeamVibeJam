@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: the-drop-server
+    runtime: node
+    plan: free
+    buildCommand: npm install --workspace=server --workspace=shared && npm run build:server
+    startCommand: cd server && node dist/server/src/index.js
+    envVars:
+      - key: PORT
+        value: 10000
+      - key: CLIENT_ORIGIN
+        value: https://qrustonvr.github.io
+    healthCheckPath: /health
