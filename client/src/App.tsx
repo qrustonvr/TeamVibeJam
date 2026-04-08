@@ -2,7 +2,7 @@ import { GameProvider } from '@/context/GameContext'
 import { Header } from '@/components/layout/Header'
 import { Footer } from '@/components/layout/Footer'
 import { GameTable } from '@/components/layout/GameTable'
-import { Placeholder } from '@/components/game/Placeholder'
+import { DropGame } from '@/components/game/DropGame'
 
 function App() {
   return (
@@ -13,7 +13,7 @@ function App() {
       >
         <Header />
         <GameTable>
-          <Placeholder />
+          <DropGame />
         </GameTable>
         <Footer />
       </div>
