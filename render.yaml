@@ -3,8 +3,8 @@ services:
     name: the-drop-server
     runtime: node
     plan: free
-    buildCommand: npm install --workspace=server --workspace=shared && npm run build:server
-    startCommand: cd server && node dist/server/src/index.js
+    buildCommand: npm install
+    startCommand: cd server && npx tsx src/index.ts
     envVars:
       - key: PORT
         value: 10000
