@@ -204,12 +204,45 @@ export class Room {
     this.promptCurrentPlayer()
   }
 
+  // ── Shared helper: deal +1 hole card to each active player and send privately ─
+
+  private dealAndSendHoleCard(streetName: string, logCard: string): void {
+    resetDropState(this.state)
+    dealCardToPlayers(this.state)
+    for (const seat of this.state.seats) {
+      if (!seat.folded) {
+        this.sendTo(seat.seatIndex, {
+          type: 'HOLE_CARDS',
+          seatIndex: seat.seatIndex,
+          cards: seat.holeCards,
+        })
+      }
+    }
+    this.logAndBroadcast(`${streetName}: ${logCard} — each player receives a new card`)
+  }
+
   startFlop(): void {
     this.setPhase('flop')
     const cards = dealFlop(this.state)
     this.broadcastAll({ type: 'COMMUNITY_CARDS', cards: this.state.communityCards })
-    this.logAndBroadcast(`Flop: ${cards.map(c => c.display).join(' ')}`)
-    setTimeout(() => this.startBetting2(), 600)
+    this.dealAndSendHoleCard('Flop', cards.map(c => c.display).join(' '))
+    setTimeout(() => this.startDrop1Phase(), 600)
+  }
+
+  startDrop1Phase(): void {
+    this.setPhase('drop_1')
+    this.broadcastState()
+    this.logAndBroadcast('THE DROP (flop) — choose a card to send to the drop zone')
+    const first = nextUndroppedSeat(this.state)
+    if (first !== -1) this.startDropTimer(first)
+  }
+
+  startDrop1Reveal(): void {
+    this.setPhase('drop_1_reveal')
+    revealDropZone(this.state)
+    this.broadcastAll({ type: 'DROP_REVEALED', dropZone: this.state.dropZone })
+    this.logAndBroadcast(`Drop zone: ${this.state.dropZone.map(c => c.display).join(' ')}`)
+    setTimeout(() => this.startBetting2(), 1200)
   }
 
   startBetting2(): void {
@@ -223,32 +256,20 @@ export class Room {
     this.setPhase('turn')
     const card = dealTurn(this.state)
     this.broadcastAll({ type: 'COMMUNITY_CARDS', cards: this.state.communityCards })
-    // Deal 1 extra hole card to each non-folded player, then prompt THE DROP
-    resetDropState(this.state)
-    dealCardToPlayers(this.state)
-    for (const seat of this.state.seats) {
-      if (!seat.folded) {
-        this.sendTo(seat.seatIndex, {
-          type: 'HOLE_CARDS',
-          seatIndex: seat.seatIndex,
-          cards: seat.holeCards,
-        })
-      }
-    }
-    this.logAndBroadcast(`Turn: ${card.display} — each player receives a new card`)
-    setTimeout(() => this.startDrop1Phase(), 600)
+    this.dealAndSendHoleCard('Turn', card.display)
+    setTimeout(() => this.startDrop2Phase(), 600)
   }
 
-  startDrop1Phase(): void {
-    this.setPhase('drop_1')
+  startDrop2Phase(): void {
+    this.setPhase('drop_2')
     this.broadcastState()
     this.logAndBroadcast('THE DROP (turn) — choose a card to send to the drop zone')
     const first = nextUndroppedSeat(this.state)
     if (first !== -1) this.startDropTimer(first)
   }
 
-  startDrop1Reveal(): void {
-    this.setPhase('drop_1_reveal')
+  startDrop2Reveal(): void {
+    this.setPhase('drop_2_reveal')
     revealDropZone(this.state)
     this.broadcastAll({ type: 'DROP_REVEALED', dropZone: this.state.dropZone })
     this.logAndBroadcast(`Drop zone: ${this.state.dropZone.map(c => c.display).join(' ')}`)
@@ -266,32 +287,20 @@ export class Room {
     this.setPhase('river')
     const card = dealRiver(this.state)
     this.broadcastAll({ type: 'COMMUNITY_CARDS', cards: this.state.communityCards })
-    // Deal 1 extra hole card to each non-folded player, then prompt THE DROP again
-    resetDropState(this.state)
-    dealCardToPlayers(this.state)
-    for (const seat of this.state.seats) {
-      if (!seat.folded) {
-        this.sendTo(seat.seatIndex, {
-          type: 'HOLE_CARDS',
-          seatIndex: seat.seatIndex,
-          cards: seat.holeCards,
-        })
-      }
-    }
-    this.logAndBroadcast(`River: ${card.display} — each player receives a new card`)
-    setTimeout(() => this.startDrop2Phase(), 600)
+    this.dealAndSendHoleCard('River', card.display)
+    setTimeout(() => this.startDrop3Phase(), 600)
   }
 
-  startDrop2Phase(): void {
-    this.setPhase('drop_2')
+  startDrop3Phase(): void {
+    this.setPhase('drop_3')
     this.broadcastState()
     this.logAndBroadcast('THE DROP (river) — choose a card to send to the drop zone')
     const first = nextUndroppedSeat(this.state)
     if (first !== -1) this.startDropTimer(first)
   }
 
-  startDrop2Reveal(): void {
-    this.setPhase('drop_2_reveal')
+  startDrop3Reveal(): void {
+    this.setPhase('drop_3_reveal')
     revealDropZone(this.state)
     this.broadcastAll({ type: 'DROP_REVEALED', dropZone: this.state.dropZone })
     this.logAndBroadcast(`Drop zone: ${this.state.dropZone.map(c => c.display).join(' ')}`)
@@ -426,7 +435,6 @@ export class Room {
       case 'betting_2': this.startTurn(); break
       case 'betting_3': this.startRiver(); break
       case 'betting_4': this.runShowdownPhase(); break
-      default: break
     }
   }
 
@@ -447,11 +455,9 @@ export class Room {
 
     if (allHaveDropped(this.state)) {
       this.clearTimer()
-      if (this.state.phase === 'drop_1') {
-        this.startDrop1Reveal()
-      } else {
-        this.startDrop2Reveal()
-      }
+      if (this.state.phase === 'drop_1') this.startDrop1Reveal()
+      else if (this.state.phase === 'drop_2') this.startDrop2Reveal()
+      else this.startDrop3Reveal()
     } else {
       // Start timer for next person who hasn't dropped
       const next = nextUndroppedSeat(this.state)
@@ -477,7 +483,7 @@ export class Room {
       this.processAction(seat.seatIndex, { type: autoAction as 'check' | 'fold' })
     }
 
-    if ((this.state.phase === 'drop_1' || this.state.phase === 'drop_2') && !seat.hasDropped && !seat.folded) {
+    if (['drop_1','drop_2','drop_3'].includes(this.state.phase) && !seat.hasDropped && !seat.folded) {
       this.clearTimer()
       const cardIndex = autoDropChoice(seat)
       this.processDrop(seat.seatIndex, cardIndex)

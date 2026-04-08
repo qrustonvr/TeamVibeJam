@@ -157,7 +157,7 @@ export function DropGame() {
 
     const isYourTurn = gameState.activeSeatIndex === seatIndex &&
       ['betting_1','betting_2','betting_3','betting_4'].includes(gameState.phase)
-    const isYourDropTurn = (gameState.phase === 'drop_1' || gameState.phase === 'drop_2') &&
+    const isYourDropTurn = ['drop_1','drop_2','drop_3'].includes(gameState.phase) &&
       !gameState.seats.find(s => s.seatIndex === seatIndex)?.hasDropped
 
     const handWinners: HandWinner[] = []

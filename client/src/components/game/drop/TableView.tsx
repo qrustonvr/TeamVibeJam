@@ -39,8 +39,8 @@ export function TableView({
   const mySeat = seats.find(s => s.seatIndex === yourSeatIndex)
   const otherSeats = seats.filter(s => s.seatIndex !== yourSeatIndex)
   const isBettingPhase = ['betting_1','betting_2','betting_3','betting_4'].includes(phase)
-  const isDropPhase = phase === 'drop_1' || phase === 'drop_2'
-  const dropPhaseNumber: 1 | 2 = phase === 'drop_2' ? 2 : 1
+  const isDropPhase = phase === 'drop_1' || phase === 'drop_2' || phase === 'drop_3'
+  const dropPhaseNumber: 1 | 2 | 3 = phase === 'drop_3' ? 3 : phase === 'drop_2' ? 2 : 1
   const isShowdown = phase === 'showdown' || phase === 'payout'
   const activeSeat = seats.find(s => s.seatIndex === activeSeatIndex)
   const totalDroppers = seats.filter(s => !s.folded).length

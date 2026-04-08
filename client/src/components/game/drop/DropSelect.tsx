@@ -9,12 +9,12 @@ interface DropSelectProps {
   dropsReceived: number
   totalDroppers: number
   deadline: number | null
-  dropPhase: 1 | 2
+  dropPhase: 1 | 2 | 3
   onDrop: (cardIndex: number) => void
 }
 
 export function DropSelect({ cards, hasDropped, dropsReceived, totalDroppers, deadline, dropPhase, onDrop }: DropSelectProps) {
-  const label = dropPhase === 1 ? '✦ THE DROP — TURN ✦' : '✦ THE DROP — RIVER ✦'
+  const label = dropPhase === 1 ? '✦ THE DROP — FLOP ✦' : dropPhase === 2 ? '✦ THE DROP — TURN ✦' : '✦ THE DROP — RIVER ✦'
   return (
     <div style={{
       position: 'absolute', inset: 0,
