@@ -11,10 +11,10 @@ interface CardViewProps {
 }
 
 const SUIT_COLORS: Record<string, string> = {
-  '♠': '#e8e8e8',
-  '♣': '#e8e8e8',
-  '♥': '#ff6b6b',
-  '♦': '#ff6b6b',
+  '♠': '#1a1a2e',
+  '♣': '#1a1a2e',
+  '♥': '#c0392b',
+  '♦': '#c0392b',
 }
 
 export function CardView({ card, faceDown = false, selected = false, onClick, small = false, dimmed = false, glowing = false }: CardViewProps) {
