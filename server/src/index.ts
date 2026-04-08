@@ -36,8 +36,16 @@ const wss = new WebSocketServer({ server: httpServer })
 
 wss.on('connection', (ws, req) => {
   const origin = req.headers.origin ?? ''
-  // Allow localhost in dev; in prod limit to CLIENT_ORIGIN
-  if (origin && origin !== CLIENT_ORIGIN && !origin.startsWith('http://localhost')) {
+  console.log(`WS connection from origin: "${origin}"`)
+  // Permissive for game jam: allow any github.io subdomain and localhost
+  const allowed =
+    !origin ||
+    origin.startsWith('http://localhost') ||
+    origin.startsWith('https://localhost') ||
+    origin.includes('github.io') ||
+    origin === CLIENT_ORIGIN
+  if (!allowed) {
+    console.log(`Rejected origin: ${origin}`)
     ws.close(4001, 'Forbidden')
     return
   }

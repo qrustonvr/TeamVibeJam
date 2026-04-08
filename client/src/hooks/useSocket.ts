@@ -47,6 +47,10 @@ export function useSocket(): [MultiplayerState, SocketActions] {
   const reconnectAttemptsRef = useRef(0)
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const pendingJoinRef = useRef<{ type: 'create'; displayName: string; maxPlayers: number } | { type: 'join'; roomCode: string; displayName: string } | null>(null)
+  const mpStateRef = useRef<MultiplayerState>({
+    gameState: null, connectionStatus: 'disconnected',
+    roomCode: null, seatIndex: null, sessionToken: null, error: null, log: [],
+  })
 
   const [mpState, setMpState] = useState<MultiplayerState>({
     gameState: null,
@@ -57,6 +61,9 @@ export function useSocket(): [MultiplayerState, SocketActions] {
     error: null,
     log: [],
   })
+
+  // Keep ref in sync for use inside closures
+  mpStateRef.current = mpState
 
   const send = useCallback((msg: ClientMessage) => {
     const ws = wsRef.current
@@ -252,15 +259,7 @@ export function useSocket(): [MultiplayerState, SocketActions] {
     ws.onmessage = (event) => {
       try {
         const msg = JSON.parse(event.data as string) as ServerMessage
-        setMpState(current => {
-          handleMessage(msg, current.roomCode, current.seatIndex)
-          return current
-        })
-        // We need actual current state values — use functional approach
-        setMpState(s => {
-          handleMessage(msg, s.roomCode, s.seatIndex)
-          return s
-        })
+        handleMessage(msg, null, null)
       } catch {
         // ignore malformed
       }
@@ -274,15 +273,11 @@ export function useSocket(): [MultiplayerState, SocketActions] {
         reconnectAttemptsRef.current++
         setMpState(s => ({ ...s, connectionStatus: 'reconnecting' }))
         reconnectTimerRef.current = setTimeout(() => {
-          setMpState(s => {
-            const roomCode = s.roomCode
-            const token = s.sessionToken
-            connect(() => {
-              if (roomCode && token) {
-                wsRef.current?.send(JSON.stringify({ type: 'REJOIN', roomCode, sessionToken: token }))
-              }
-            })
-            return s
+          const s = mpStateRef.current
+          connect(() => {
+            if (s.roomCode && s.sessionToken) {
+              wsRef.current?.send(JSON.stringify({ type: 'REJOIN', roomCode: s.roomCode, sessionToken: s.sessionToken }))
+            }
           })
         }, backoff)
       } else {
