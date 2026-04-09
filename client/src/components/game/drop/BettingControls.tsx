@@ -1,5 +1,6 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/Button'
+import { useSound } from '@/hooks/useSound'
 import type { BrewResult } from '@shared/gameTypes'
 
 interface BettingControlsProps {
@@ -25,6 +26,12 @@ export function BettingControls({
 }: BettingControlsProps) {
   const [raiseAmount, setRaiseAmount] = useState<number | null>(null)
   const [showRaise, setShowRaise] = useState(false)
+  const { play, preload } = useSound()
+
+  useEffect(() => {
+    preload('check', '/TeamVibeJam/audio/check.wav')
+    preload('fold', '/TeamVibeJam/audio/fold.wav')
+  }, [preload])
 
   const toCall = Math.max(0, currentBetLevel - myCurrentBet)
   const canCheck = toCall === 0
@@ -71,10 +78,10 @@ export function BettingControls({
       )}
       {!showRaise ? (
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', justifyContent: 'center' }}>
-          <Button variant="danger" onClick={() => onAction('fold')}>Fold</Button>
+          <Button variant="danger" onClick={() => { play('fold'); onAction('fold') }}>Fold</Button>
 
           {canCheck ? (
-            <Button variant="ghost" onClick={() => onAction('check')}>Check</Button>
+            <Button variant="ghost" onClick={() => { play('check'); onAction('check') }}>Check</Button>
           ) : (
             <Button variant="ghost" onClick={() => onAction('call')}>
               Call ◆{toCall}
