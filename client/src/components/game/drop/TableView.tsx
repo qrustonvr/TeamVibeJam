@@ -38,10 +38,10 @@ interface TableViewProps {
 // Index 3 is always the local player (bottom-center).
 // cardsFirst: true → cards render closer to the table center (above the badge for bottom seats).
 const SEAT_POSITIONS = [
-  { left: '50%', top:  '3%', transform: 'translate(-50%, 0)',     cardsFirst: false }, // 0: top-center
+  { left: '50%', top: '-10%', transform: 'translate(-50%, 0)',     cardsFirst: false }, // 0: top-center
   { left: '87%', top: '26%', transform: 'translate(-50%, -50%)',  cardsFirst: false }, // 1: top-right
   { left: '87%', top: '74%', transform: 'translate(-50%, -50%)',  cardsFirst: true  }, // 2: bot-right
-  { left: '50%', top: '97%', transform: 'translate(-50%, -100%)', cardsFirst: true  }, // 3: bottom (you)
+  { left: '50%', top: '100%', transform: 'translate(-50%, -100%)', cardsFirst: true  }, // 3: bottom (you)
   { left: '13%', top: '74%', transform: 'translate(-50%, -50%)',  cardsFirst: true  }, // 4: bot-left
   { left: '13%', top: '26%', transform: 'translate(-50%, -50%)',  cardsFirst: false }, // 5: top-left
 ] as const
@@ -241,8 +241,8 @@ export function TableView({
             position: 'absolute', inset: 0,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
           }}>
-            <div style={{ position: 'relative', width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
+            <div style={{ position: 'relative', width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-start', paddingTop: 60 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
                 <CommunityCards
                   communityCards={communityCards}
                   dropZone={dropZone}
@@ -357,12 +357,15 @@ export function TableView({
       </div>
 
       {/* ── Controls panel (below the oval) ──────────────────────── */}
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
-        {(isYourTurn || isYourDropTurn) && (
-          <div style={{ width: '100%', maxWidth: 300 }}>
-            <TimerBar deadline={actionDeadline} totalMs={isYourDropTurn ? 20_000 : 30_000} />
-          </div>
-        )}
+      {/* minHeight reserves space for betting controls so the panel never collapses between phases */}
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, minHeight: 56 }}>
+        <div style={{ width: '100%', maxWidth: 300 }}>
+          {isYourTurn ? (
+            <TimerBar deadline={actionDeadline} totalMs={30_000} />
+          ) : (
+            <div style={{ height: 4 }} />
+          )}
+        </div>
         {isBettingPhase && (
           <BettingControls
             isYourTurn={isYourTurn}

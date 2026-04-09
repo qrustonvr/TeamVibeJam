@@ -39,17 +39,26 @@ export function BettingControls({
   const effectiveRaise = raiseAmount ?? minRaise
   const isFireSale = activeBrew?.modifier === 'fire-sale'
 
-  if (!isYourTurn) {
-    return (
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
-        {isFireSale && (
-          <div style={{
-            fontFamily: 'var(--font-body)', fontSize: 10, letterSpacing: 2,
-            color: '#fb923c', textTransform: 'uppercase',
-          }}>
-            🔥 UNCAPPED
-          </div>
-        )}
+  const potBets = [0.5, 1, 2].map(f => ({
+    label: `${f}x pot`,
+    amount: Math.round(pot * f),
+  }))
+
+  return (
+    <div style={{
+      display: 'flex', flexDirection: 'column', alignItems: 'center',
+      minHeight: 46,
+      gap: isYourTurn ? 8 : 4,
+    }}>
+      {isFireSale && (
+        <div style={{
+          textAlign: 'center', fontFamily: 'var(--font-body)', fontSize: 10,
+          letterSpacing: 2, color: '#fb923c', textTransform: 'uppercase',
+        }}>
+          {isYourTurn ? '🔥 FIRE SALE — Betting uncapped' : '🔥 UNCAPPED'}
+        </div>
+      )}
+      {!isYourTurn ? (
         <div style={{
           padding: '12px 16px', textAlign: 'center',
           fontFamily: 'var(--font-body)', fontSize: 13,
@@ -57,26 +66,7 @@ export function BettingControls({
         }}>
           Waiting for {activeSeatName ?? 'another player'}…
         </div>
-      </div>
-    )
-  }
-
-  const potBets = [0.5, 1, 2].map(f => ({
-    label: `${f}x pot`,
-    amount: Math.round(pot * f),
-  }))
-
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-      {isFireSale && (
-        <div style={{
-          textAlign: 'center', fontFamily: 'var(--font-body)', fontSize: 10,
-          letterSpacing: 2, color: '#fb923c', textTransform: 'uppercase',
-        }}>
-          🔥 FIRE SALE — Betting uncapped
-        </div>
-      )}
-      {!showRaise ? (
+      ) : !showRaise ? (
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', justifyContent: 'center' }}>
           <Button variant="danger" onClick={() => { play('fold'); onAction('fold') }}>Fold</Button>
 

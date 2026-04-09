@@ -10,7 +10,7 @@ interface CommunityCardsProps {
 
 export function CommunityCards({ communityCards, dropZone, pot, turnIsHidden = false }: CommunityCardsProps) {
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
       {/* Community cards */}
       <div style={{ display: 'flex', gap: 8 }}>
         {[0,1,2,3,4].map(i => {
@@ -33,7 +33,7 @@ export function CommunityCards({ communityCards, dropZone, pot, turnIsHidden = f
 
       {/* Drop Zone / Brew Zone */}
       <div style={{
-        padding: '8px 16px',
+        padding: '5px 12px',
         border: dropZone.length > 0 ? '1px solid rgba(212,175,55,0.6)' : '1px solid rgba(212,175,55,0.3)',
         borderRadius: 8,
         background: dropZone.length > 0 ? 'rgba(212,175,55,0.08)' : 'rgba(212,175,55,0.03)',

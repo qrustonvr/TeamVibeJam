@@ -23,12 +23,12 @@ interface DropSelectProps {
 export function DropSelect({ cards, hasDropped, dropsReceived, totalDroppers, deadline, onDrop }: DropSelectProps) {
   return (
     <div style={{
-      position: 'absolute', inset: 0,
-      display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-      background: 'rgba(0,0,0,0.7)',
-      backdropFilter: 'blur(4px)',
-      borderRadius: 12,
-      gap: 16,
+      position: 'absolute', left: 0, right: 0, bottom: 0,
+      height: '52%',
+      display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-end',
+      paddingBottom: 16,
+      background: 'linear-gradient(to bottom, transparent 0%, rgba(0,0,0,0.88) 22%)',
+      gap: 10,
       zIndex: 10,
     }}>
       <div style={{
@@ -50,19 +50,19 @@ export function DropSelect({ cards, hasDropped, dropsReceived, totalDroppers, de
           }}>
             Choose a card to send to The Brew
           </div>
-          <div style={{ display: 'flex', gap: 20 }}>
+          <div style={{ display: 'flex', gap: 14 }}>
             {cards.map((card, i) => (
               <div
                 key={i}
-                style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, cursor: 'pointer' }}
-                onMouseEnter={e => (e.currentTarget.querySelector('.card-wrap') as HTMLElement | null)?.style && ((e.currentTarget.querySelector('.card-wrap') as HTMLElement).style.transform = 'translateY(-12px)')}
+                style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, cursor: 'pointer' }}
+                onMouseEnter={e => (e.currentTarget.querySelector('.card-wrap') as HTMLElement | null)?.style && ((e.currentTarget.querySelector('.card-wrap') as HTMLElement).style.transform = 'translateY(-8px)')}
                 onMouseLeave={e => (e.currentTarget.querySelector('.card-wrap') as HTMLElement | null)?.style && ((e.currentTarget.querySelector('.card-wrap') as HTMLElement).style.transform = 'translateY(0)')}
               >
                 <div className="card-wrap" style={{ transition: 'transform 0.2s' }}>
-                  <CardView card={card} onClick={() => onDrop(i)} selected={false} />
+                  <CardView card={card} small onClick={() => onDrop(i)} selected={false} />
                 </div>
                 <div style={{
-                  fontFamily: 'var(--font-body)', fontSize: 9,
+                  fontFamily: 'var(--font-body)', fontSize: 8,
                   color: 'rgba(255,255,255,0.3)', letterSpacing: 1,
                   textTransform: 'uppercase',
                 }}>
