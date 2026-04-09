@@ -1,9 +1,9 @@
 import { useReducer, useEffect, useCallback, useRef } from 'react'
-import type { Card, AIPersonality, BrewResult } from '@shared/gameTypes'
+import type { Card, AIPersonality, BrewResult, BrewModifier, ShowdownPlayerInfo } from '@shared/gameTypes'
 import { ANTE_AMOUNT } from '@shared/constants'
-import { best5of } from '@shared/handEvaluator'
+import { best5of, evaluatePlayerHand } from '@shared/handEvaluator'
 import { computeAIAction, computeAIDropChoice, randomPersonality } from '@/ai/dropAI'
-import { resolveBrews } from '@/utils/brewResolver'
+import { makeBrewFromModifier } from '@/utils/brewResolver'
 import { useGame } from '@/context/GameContext'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -19,6 +19,7 @@ export interface LocalSeat {
   hasDropped: boolean
   holeCards: Card[]
   droppedCard: Card | null
+  votedOmen: BrewModifier | null
   exposedCard: Card | null
   lastAction: string | null
   isAI: boolean
@@ -27,6 +28,7 @@ export interface LocalSeat {
 
 type DropPhaseLocal =
   | 'lobby' | 'deal'
+  | 'omens-reveal' // brief pre-flop reveal of the 3 omens
   | 'betting_1'   // pre-flop
   | 'flop'
   | 'betting_2'   // post-flop (BEFORE drop)
@@ -52,10 +54,13 @@ interface LocalGameState {
   dealerIndex: number
   roundNumber: number
   handWinners: Array<{ seatIndex: number; handName: string; potWon: number }> | null
+  showdownPlayers: ShowdownPlayerInfo[] | null
   roundActedSeats: number[]
   activeBrew: BrewResult | null
   nextAnteMultiplier: number
   turnIsHidden: boolean
+  omens: BrewModifier[]
+  omenMappings: BrewModifier[][]  // omenMappings[seatIndex][cardIndex] → omen
 }
 
 type LocalAction =
@@ -212,7 +217,7 @@ function applyBrewEffect(state: LocalGameState, brew: BrewResult): LocalGameStat
       turnIsHidden = true
       break
 
-    // fire-sale, chain-lightning, calm-waters: handled in display/showdown, no state change needed
+    // fire-sale, chain-lightning: handled in display/showdown, no state change needed
     default:
       break
   }
@@ -222,12 +227,28 @@ function applyBrewEffect(state: LocalGameState, brew: BrewResult): LocalGameStat
 
 // ─── Reducer ──────────────────────────────────────────────────────────────────
 
+const ALL_MODIFIERS: BrewModifier[] = [
+  'nuke', 'chain-lightning', 'royal-tax', 'underdog', 'bleeding-pot',
+  'grave-dig', 'jackpot', 'sabotage', 'fire-sale', 'blackout',
+]
+
+function shuffleArray<T>(arr: T[]): T[] {
+  const a = [...arr]
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]]
+  }
+  return a
+}
+
 function makeInitialState(): LocalGameState {
   return {
     phase: 'lobby', seats: [], deck: [], communityCards: [], dropZone: [],
     pot: 0, currentBetLevel: ANTE_AMOUNT, activeSeatIndex: -1,
-    dealerIndex: 0, roundNumber: 0, handWinners: null, roundActedSeats: [],
+    dealerIndex: 0, roundNumber: 0, handWinners: null, showdownPlayers: null,
+    roundActedSeats: [],
     activeBrew: null, nextAnteMultiplier: 1, turnIsHidden: false,
+    omens: [], omenMappings: [],
   }
 }
 
@@ -238,13 +259,13 @@ function reducer(state: LocalGameState, action: LocalAction): LocalGameState {
       const playerSeat: LocalSeat = {
         seatIndex: 0, displayName: 'You', stack: 1000,
         currentBet: 0, totalBetThisHand: 0, folded: false, allIn: false,
-        hasDropped: false, holeCards: [], droppedCard: null, exposedCard: null,
+        hasDropped: false, holeCards: [], droppedCard: null, votedOmen: null, exposedCard: null,
         lastAction: null, isAI: false, personality: 'balanced',
       }
       const aiSeats: LocalSeat[] = Array.from({ length: action.aiCount }, (_, i) => ({
         seatIndex: i + 1, displayName: `AI ${i + 1}`, stack: 1000,
         currentBet: 0, totalBetThisHand: 0, folded: false, allIn: false,
-        hasDropped: false, holeCards: [], droppedCard: null, exposedCard: null,
+        hasDropped: false, holeCards: [], droppedCard: null, votedOmen: null, exposedCard: null,
         lastAction: null, isAI: true, personality: randomPersonality(),
       }))
       return { ...makeInitialState(), seats: [playerSeat, ...aiSeats] }
@@ -263,14 +284,25 @@ function reducer(state: LocalGameState, action: LocalAction): LocalGameState {
           ...seat, currentBet: ante, totalBetThisHand: ante,
           stack: seat.stack - ante, folded: false,
           allIn: seat.stack - ante === 0,
-          hasDropped: false, droppedCard: null, exposedCard: null, holeCards: cards, lastAction: null,
+          hasDropped: false, droppedCard: null, votedOmen: null, exposedCard: null, holeCards: cards, lastAction: null,
         }
       })
+
+      // Generate 3 omens for this hand
+      const omens = shuffleArray(ALL_MODIFIERS).slice(0, 3)
+      // Generate per-seat omen mappings (each seat's 3 card slots map to a shuffled set of the 3 omens)
+      const omenMappings: BrewModifier[][] = []
+      for (const seat of seats) {
+        omenMappings[seat.seatIndex] = shuffleArray(omens)
+      }
+
       return {
         ...state, phase: 'deal', deck, seats, communityCards: [], dropZone: [], pot,
         currentBetLevel: ANTE_AMOUNT, activeSeatIndex: -1,
-        roundNumber: state.roundNumber + 1, handWinners: null, roundActedSeats: [],
+        roundNumber: state.roundNumber + 1, handWinners: null, showdownPlayers: null,
+        roundActedSeats: [],
         activeBrew: null, nextAnteMultiplier: 1, turnIsHidden: false,
+        omens, omenMappings,
       }
     }
 
@@ -358,17 +390,37 @@ function reducer(state: LocalGameState, action: LocalAction): LocalGameState {
       const seat = { ...state.seats[seatIndex] }
       const dropped = seat.holeCards[cardIndex]
       seat.droppedCard = dropped
+      seat.votedOmen = state.omenMappings[seatIndex]?.[cardIndex] ?? null
       seat.hasDropped = true
       seat.holeCards = seat.holeCards.filter((_, i) => i !== cardIndex)
       return { ...state, seats: state.seats.map(s => s.seatIndex === seatIndex ? seat : s) }
     }
 
     case 'RESOLVE_BREW': {
-      // Collect dropped cards, run brew resolution, apply effect
+      // Collect dropped cards
       const droppedCards = state.seats.filter(s => !s.folded && s.droppedCard).map(s => s.droppedCard!)
       const dropZone = [...state.dropZone, ...droppedCards]
       const seats: LocalSeat[] = state.seats.map(s => ({ ...s, droppedCard: null as Card | null }))
-      const brew = resolveBrews(droppedCards)
+
+      // Tally omen votes
+      const voteTally: Record<string, number> = {}
+      for (const seat of state.seats) {
+        if (!seat.folded && seat.votedOmen) {
+          voteTally[seat.votedOmen] = (voteTally[seat.votedOmen] ?? 0) + 1
+        }
+      }
+      // Find winning omen (most votes; ties broken randomly among tied)
+      let maxVotes = -1
+      const tiedOmens: BrewModifier[] = []
+      for (const omen of state.omens) {
+        const votes = voteTally[omen] ?? 0
+        if (votes > maxVotes) { maxVotes = votes; tiedOmens.length = 0; tiedOmens.push(omen) }
+        else if (votes === maxVotes) { tiedOmens.push(omen) }
+      }
+      const winningOmen = tiedOmens.length > 0
+        ? tiedOmens[Math.floor(Math.random() * tiedOmens.length)]
+        : (state.omens[0] ?? 'fire-sale')
+      const brew = makeBrewFromModifier(winningOmen)
 
       let newState: LocalGameState = { ...state, dropZone, seats, activeBrew: brew, phase: 'brew_reveal' as DropPhaseLocal }
       newState = applyBrewEffect(newState, brew)
@@ -383,11 +435,21 @@ function reducer(state: LocalGameState, action: LocalAction): LocalGameState {
         const seats = state.seats.map(s =>
           s.seatIndex === winner.seatIndex ? { ...s, stack: s.stack + state.pot } : s
         )
-        return { ...state, phase: 'payout', seats, handWinners: [{ seatIndex: winner.seatIndex, handName: 'Last Standing', potWon: state.pot }] }
+        const showdownPlayers: ShowdownPlayerInfo[] = state.seats.map(s => ({
+          seatIndex: s.seatIndex,
+          handName: s.seatIndex === winner.seatIndex ? 'Last Standing' : 'Folded',
+          score: 0,
+          holeCards: [...s.holeCards],
+          bestHandCards: [],
+          isWinner: s.seatIndex === winner.seatIndex,
+          potWon: s.seatIndex === winner.seatIndex ? state.pot : 0,
+          folded: s.folded,
+        }))
+        return { ...state, phase: 'payout', seats, handWinners: [{ seatIndex: winner.seatIndex, handName: 'Last Standing', potWon: state.pot }], showdownPlayers }
       }
 
       const evaluated = remaining.map(seat => ({
-        seat, result: best5of([...seat.holeCards, ...state.communityCards]),
+        seat, result: evaluatePlayerHand([...seat.holeCards], state.communityCards, []),
       })).sort((a, b) => b.result.score - a.result.score)
 
       const topScore = evaluated[0].result.score
@@ -431,7 +493,26 @@ function reducer(state: LocalGameState, action: LocalAction): LocalGameState {
         }
       }
 
-      return { ...state, phase: 'payout', seats, handWinners: winRecords }
+      // Build full showdown info for all players (for cinematic display)
+      const winnerSet = new Set(winRecords.map(w => w.seatIndex))
+      const potWonMap = new Map(winRecords.map(w => [w.seatIndex, w.potWon]))
+      const evalMap = new Map(evaluated.map(e => [e.seat.seatIndex, e.result]))
+
+      const showdownPlayers: ShowdownPlayerInfo[] = state.seats.map(s => {
+        const result = evalMap.get(s.seatIndex)
+        return {
+          seatIndex: s.seatIndex,
+          handName: s.folded ? 'Folded' : (result?.name ?? 'High Card'),
+          score: result?.score ?? 0,
+          holeCards: [...s.holeCards],
+          bestHandCards: result?.cards ?? [],
+          isWinner: winnerSet.has(s.seatIndex),
+          potWon: potWonMap.get(s.seatIndex) ?? 0,
+          folded: s.folded,
+        }
+      })
+
+      return { ...state, phase: 'payout', seats, handWinners: winRecords, showdownPlayers }
     }
 
     case 'NEXT_HAND': {
@@ -476,10 +557,17 @@ export function useDropGame() {
 
   // ─── Phase transitions ────────────────────────────────────────────────────
 
-  // deal → betting_1
+  // deal → omens-reveal
   useEffect(() => {
     if (state.phase === 'deal') {
-      schedulePhase(() => dispatch({ type: 'START_BETTING_ROUND', phase: 'betting_1' }), 800)
+      schedulePhase(() => dispatch({ type: 'SET_PHASE', phase: 'omens-reveal' }), 800)
+    }
+  }, [state.phase, schedulePhase])
+
+  // omens-reveal → betting_1 (after 3 seconds)
+  useEffect(() => {
+    if (state.phase === 'omens-reveal') {
+      schedulePhase(() => dispatch({ type: 'START_BETTING_ROUND', phase: 'betting_1' }), 3000)
     }
   }, [state.phase, schedulePhase])
 
@@ -625,6 +713,9 @@ export function useDropGame() {
     isYourDropTurn,
     yourCards: state.seats[0]?.holeCards ?? [],
     yourSeatIndex: 0,
+    omens: state.omens,
+    omenMappings: state.omenMappings,
+    showdownPlayers: state.showdownPlayers,
     startGame: (aiCount: number) => {
       dispatch({ type: 'START_GAME', aiCount })
       setTimeout(() => dispatch({ type: 'START_HAND' }), 50)

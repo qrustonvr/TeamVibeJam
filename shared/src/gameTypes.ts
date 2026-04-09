@@ -11,7 +11,6 @@ export type BrewModifier =
   | 'sabotage'
   | 'fire-sale'
   | 'blackout'
-  | 'calm-waters'
 
 export interface BrewResult {
   modifier: BrewModifier
@@ -25,6 +24,7 @@ export interface BrewResult {
 export type DropPhase =
   | 'lobby'
   | 'deal'
+  | 'omens-reveal'  // brief pre-flop reveal of the 3 omens for this hand
   | 'betting_1'    // pre-flop
   | 'flop'
   | 'betting_2'    // post-flop (BEFORE drop)
@@ -102,6 +102,17 @@ export interface HandWinner {
   potWon: number
   holeCards: Card[]
   bestHandCards: Card[]
+}
+
+export interface ShowdownPlayerInfo {
+  seatIndex: number
+  handName: string
+  score: number
+  holeCards: Card[]
+  bestHandCards: Card[]
+  isWinner: boolean
+  potWon: number
+  folded: boolean
 }
 
 export interface SidePot {

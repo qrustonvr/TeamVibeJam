@@ -1,9 +1,10 @@
-import type { Card } from '@shared/gameTypes'
+import type { Card, BrewModifier } from '@shared/gameTypes'
 import { CardView } from './CardView'
 import { TimerBar } from './TimerBar'
 import { DROP_TIMER_MS } from '@shared/constants'
+import { BREW_DEFS, BREW_MODIFIER_COLORS } from '@/utils/brewResolver'
 
-// Hint text shown under each card during drop selection
+// Fallback hint when omen mappings aren't available yet
 function cardBrewHint(card: Card): string {
   const r = card.rankIndex
   if (r <= 4) return 'Low (2–6)'
@@ -18,9 +19,11 @@ interface DropSelectProps {
   totalDroppers: number
   deadline: number | null
   onDrop: (cardIndex: number) => void
+  /** Omen each card votes for: omenMappings[yourSeatIndex] */
+  omenMappings?: BrewModifier[]
 }
 
-export function DropSelect({ cards, hasDropped, dropsReceived, totalDroppers, deadline, onDrop }: DropSelectProps) {
+export function DropSelect({ cards, hasDropped, dropsReceived, totalDroppers, deadline, onDrop, omenMappings }: DropSelectProps) {
   return (
     <div style={{
       position: 'absolute', left: 0, right: 0, bottom: 0,
@@ -61,13 +64,25 @@ export function DropSelect({ cards, hasDropped, dropsReceived, totalDroppers, de
                 <div className="card-wrap" style={{ transition: 'transform 0.2s' }}>
                   <CardView card={card} small onClick={() => onDrop(i)} selected={false} />
                 </div>
-                <div style={{
-                  fontFamily: 'var(--font-body)', fontSize: 8,
-                  color: 'rgba(255,255,255,0.3)', letterSpacing: 1,
-                  textTransform: 'uppercase',
-                }}>
-                  {cardBrewHint(card)}
-                </div>
+                {omenMappings ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
+                    <span style={{ fontSize: 12 }}>{BREW_DEFS[omenMappings[i]]?.icon}</span>
+                    <span style={{
+                      fontFamily: 'var(--font-body)', fontSize: 7,
+                      color: BREW_MODIFIER_COLORS[omenMappings[i]] ?? 'rgba(255,255,255,0.3)',
+                      letterSpacing: 1, textTransform: 'uppercase', textAlign: 'center',
+                    }}>
+                      {BREW_DEFS[omenMappings[i]]?.name}
+                    </span>
+                  </div>
+                ) : (
+                  <div style={{
+                    fontFamily: 'var(--font-body)', fontSize: 8,
+                    color: 'rgba(255,255,255,0.3)', letterSpacing: 1, textTransform: 'uppercase',
+                  }}>
+                    {cardBrewHint(card)}
+                  </div>
+                )}
               </div>
             ))}
           </div>

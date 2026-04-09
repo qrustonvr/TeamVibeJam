@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import type { DropPhase, PublicSeat, Card, HandWinner, BrewResult } from '@shared/gameTypes'
+import type { DropPhase, PublicSeat, Card, HandWinner, BrewResult, BrewModifier, ShowdownPlayerInfo } from '@shared/gameTypes'
 import { useSound } from '@/hooks/useSound'
 import { CardView } from './CardView'
 import { HoleCards } from './HoleCards'
@@ -8,6 +8,7 @@ import { BettingControls } from './BettingControls'
 import { DropSelect } from './DropSelect'
 import { BrewReveal } from './BrewReveal'
 import { ActiveModifier } from './ActiveModifier'
+import { OmensDisplay } from './OmensDisplay'
 import { Showdown } from './Showdown'
 import { TimerBar } from './TimerBar'
 import { GameLog } from './GameLog'
@@ -29,6 +30,10 @@ interface TableViewProps {
   log: string[]
   dropsReceived?: number
   activeBrew?: BrewResult | null
+  omens?: BrewModifier[]
+  omenMappings?: BrewModifier[][]
+  omenVotes?: Record<string, number>
+  showdownPlayers?: ShowdownPlayerInfo[] | null
   onAction: (action: string, amount?: number) => void
   onDropCard: (cardIndex: number) => void
   onNextHand?: () => void
@@ -96,9 +101,10 @@ interface SeatBlockProps {
   seat: PublicSeat
   isActive: boolean
   cardsFirst: boolean
+  showOmaha?: boolean
 }
 
-function SeatBlock({ seat, isActive, cardsFirst }: SeatBlockProps) {
+function SeatBlock({ seat, isActive, cardsFirst, showOmaha = false }: SeatBlockProps) {
   const dimmed = seat.folded || !seat.isConnected
 
   const badge = (
@@ -149,6 +155,16 @@ function SeatBlock({ seat, isActive, cardsFirst }: SeatBlockProps) {
           {seat.lastAction}
         </div>
       )}
+      {showOmaha && (
+        <div style={{
+          padding: '1px 5px', borderRadius: 3,
+          background: 'rgba(139,92,246,0.2)', border: '1px solid rgba(139,92,246,0.6)',
+          fontSize: 8, fontFamily: 'var(--font-body)', color: '#c084fc',
+          fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase' as const,
+        }}>
+          OMAHA
+        </div>
+      )}
     </div>
   )
 
@@ -175,6 +191,10 @@ export function TableView({
   actionDeadline, handWinners, log,
   dropsReceived = 0,
   activeBrew,
+  omens = [],
+  omenMappings = [],
+  omenVotes,
+  showdownPlayers,
   onAction, onDropCard, onNextHand,
 }: TableViewProps) {
   const mySeat = seats.find(s => s.seatIndex === yourSeatIndex)
@@ -183,6 +203,9 @@ export function TableView({
   const isDropPhase = phase === 'drop'
   const isBrewReveal = phase === 'brew_reveal'
   const isShowdown = phase === 'showdown' || phase === 'payout'
+  const isOmensReveal = phase === 'omens-reveal'
+  // Post-drop phases: show OMAHA badge when a player still has 3 cards from brew effects
+  const isPostDrop = ['brew_reveal','betting_3','turn','betting_4','river','betting_5','showdown','payout'].includes(phase)
   const activeSeat = seats.find(s => s.seatIndex === activeSeatIndex)
   const totalDroppers = seats.filter(s => !s.folded).length
   const isBlackout = activeBrew?.modifier === 'blackout'
@@ -249,6 +272,9 @@ export function TableView({
                   pot={pot}
                   turnIsHidden={isBlackout}
                 />
+                {(isOmensReveal || omens.length > 0) && !isBrewReveal && !isShowdown && (
+                  <OmensDisplay omens={omens} />
+                )}
                 {activeBrew && <ActiveModifier brew={activeBrew} />}
               </div>
 
@@ -260,11 +286,17 @@ export function TableView({
                   totalDroppers={totalDroppers}
                   deadline={isYourDropTurn ? actionDeadline : null}
                   onDrop={handleDropCard}
+                  omenMappings={omenMappings[yourSeatIndex]}
                 />
               )}
 
               {isBrewReveal && activeBrew && (
-                <BrewReveal brew={activeBrew} dropZone={dropZone} />
+                <BrewReveal
+                  brew={activeBrew}
+                  dropZone={dropZone}
+                  omens={omens}
+                  omenVotes={omenVotes}
+                />
               )}
 
               {isShowdown && handWinners && handWinners.length > 0 && (
@@ -272,6 +304,7 @@ export function TableView({
                   winners={handWinners}
                   seats={seats}
                   activeBrew={activeBrew}
+                  allPlayers={showdownPlayers ?? undefined}
                   onPlayAgain={onNextHand}
                 />
               )}
@@ -294,7 +327,7 @@ export function TableView({
               }}
             >
               {seat
-                ? <SeatBlock seat={seat} isActive={seat.seatIndex === activeSeatIndex} cardsFirst={pos.cardsFirst} />
+                ? <SeatBlock seat={seat} isActive={seat.seatIndex === activeSeatIndex} cardsFirst={pos.cardsFirst} showOmaha={isPostDrop && seat.cardCount >= 3} />
                 : <EmptySeat cardsFirst={pos.cardsFirst} />
               }
             </div>

@@ -5,7 +5,7 @@ import { Lobby } from './drop/Lobby'
 import { WaitingRoom } from './drop/WaitingRoom'
 import { TableView } from './drop/TableView'
 import { ConnectionStatus } from './drop/ConnectionStatus'
-import { BrewReference } from './drop/BrewReference'
+import { BrewSidebar } from './drop/BrewSidebar'
 import type { HandWinner, PublicSeat, BrewResult } from '@shared/gameTypes'
 
 type GameMode = 'idle' | 'solo' | 'multiplayer'
@@ -15,7 +15,7 @@ const BETTING_PHASES = ['betting_1','betting_2','betting_3','betting_4','betting
 export function DropGame() {
   const [mode, setMode] = useState<GameMode>('idle')
   const [log, setLog] = useState<string[]>([])
-  const [brewRefOpen, setBrewRefOpen] = useState(false)
+  const [brewOpen, setBrewOpen] = useState(false)
 
   // Singleplayer hook
   const solo = useDropGame()
@@ -28,7 +28,7 @@ export function DropGame() {
   // ─── Mode: solo ──────────────────────────────────────────────────────────
 
   if (mode === 'solo') {
-    const { state, isYourTurn, isYourDropTurn, yourCards, startGame: _unused, playerAction, dropCard, reset } = solo
+    const { state, isYourTurn, isYourDropTurn, yourCards, startGame: _unused, playerAction, dropCard, reset, omens, omenMappings, showdownPlayers } = solo
     void _unused
 
     const seats: PublicSeat[] = state.seats.map(s => ({
@@ -46,14 +46,17 @@ export function DropGame() {
       exposedCard: s.exposedCard,
     }))
 
-    const handWinners: HandWinner[] = state.handWinners?.map(w => ({
-      seatIndex: w.seatIndex,
-      handName: w.handName,
-      score: 0,
-      potWon: w.potWon,
-      holeCards: state.seats[w.seatIndex]?.holeCards ?? [],
-      bestHandCards: [],
-    })) ?? []
+    const handWinners: HandWinner[] = state.handWinners?.map(w => {
+      const sp = showdownPlayers?.find(p => p.seatIndex === w.seatIndex)
+      return {
+        seatIndex: w.seatIndex,
+        handName: w.handName,
+        score: sp?.score ?? 0,
+        potWon: w.potWon,
+        holeCards: sp?.holeCards ?? state.seats[w.seatIndex]?.holeCards ?? [],
+        bestHandCards: sp?.bestHandCards ?? [],
+      }
+    }) ?? []
 
     if (state.phase === 'lobby') {
       return (
@@ -69,57 +72,51 @@ export function DropGame() {
     }
 
     return (
-      <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 8px', alignItems: 'center' }}>
-          <button
-            onClick={() => { reset(); setMode('idle') }}
-            style={{
-              padding: '3px 10px', fontSize: 11, borderRadius: 4,
-              background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)',
-              color: 'rgba(255,255,255,0.4)', cursor: 'pointer', fontFamily: 'var(--font-body)',
+      <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'row', gap: 0 }}>
+        <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 8px', alignItems: 'center' }}>
+            <button
+              onClick={() => { reset(); setMode('idle') }}
+              style={{
+                padding: '3px 10px', fontSize: 11, borderRadius: 4,
+                background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)',
+                color: 'rgba(255,255,255,0.4)', cursor: 'pointer', fontFamily: 'var(--font-body)',
+              }}
+            >
+              ← Lobby
+            </button>
+          </div>
+          <TableView
+            phase={state.phase}
+            seats={seats}
+            communityCards={state.communityCards}
+            dropZone={state.dropZone}
+            pot={state.pot}
+            currentBetLevel={state.currentBetLevel}
+            activeSeatIndex={state.activeSeatIndex}
+            yourCards={yourCards}
+            yourSeatIndex={0}
+            isYourTurn={isYourTurn}
+            isYourDropTurn={isYourDropTurn}
+            actionDeadline={null}
+            handWinners={handWinners}
+            log={log}
+            dropsReceived={state.seats.filter(s => !s.folded && s.hasDropped).length}
+            activeBrew={state.activeBrew}
+            omens={omens}
+            omenMappings={omenMappings}
+            showdownPlayers={showdownPlayers}
+            onAction={(action, amount) => {
+              appendLog(`You ${action}${amount ? ` ${amount}` : ''}`)
+              playerAction(action, amount)
             }}
-          >
-            ← Lobby
-          </button>
-          <button
-            onClick={() => setBrewRefOpen(true)}
-            title="The Brew Reference"
-            style={{
-              padding: '3px 8px', fontSize: 11, borderRadius: 4,
-              background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)',
-              color: 'rgba(255,255,255,0.5)', cursor: 'pointer', fontFamily: 'var(--font-body)',
+            onDropCard={(idx) => {
+              appendLog('You dropped a card')
+              dropCard(idx)
             }}
-          >
-            ⚗ Brew
-          </button>
+          />
         </div>
-        <TableView
-          phase={state.phase}
-          seats={seats}
-          communityCards={state.communityCards}
-          dropZone={state.dropZone}
-          pot={state.pot}
-          currentBetLevel={state.currentBetLevel}
-          activeSeatIndex={state.activeSeatIndex}
-          yourCards={yourCards}
-          yourSeatIndex={0}
-          isYourTurn={isYourTurn}
-          isYourDropTurn={isYourDropTurn}
-          actionDeadline={null}
-          handWinners={handWinners}
-          log={log}
-          dropsReceived={state.seats.filter(s => !s.folded && s.hasDropped).length}
-          activeBrew={state.activeBrew}
-          onAction={(action, amount) => {
-            appendLog(`You ${action}${amount ? ` ${amount}` : ''}`)
-            playerAction(action, amount)
-          }}
-          onDropCard={(idx) => {
-            appendLog('You dropped a card')
-            dropCard(idx)
-          }}
-        />
-        <BrewReference open={brewRefOpen} onClose={() => setBrewRefOpen(false)} />
+        <BrewSidebar open={brewOpen} onToggle={() => setBrewOpen(o => !o)} activeBrew={state.activeBrew} />
       </div>
     )
   }
@@ -175,7 +172,8 @@ export function DropGame() {
     const activeBrew = gameState.activeBrew as BrewResult | null | undefined
 
     return (
-      <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}>
+      <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'row', gap: 0 }}>
+        <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
         <div style={{
           display: 'flex', justifyContent: 'space-between', padding: '4px 12px', alignItems: 'center',
         }}>
@@ -189,19 +187,7 @@ export function DropGame() {
           >
             ← Lobby
           </button>
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-            <button
-              onClick={() => setBrewRefOpen(true)}
-              style={{
-                padding: '3px 8px', fontSize: 11, borderRadius: 4,
-                background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)',
-                color: 'rgba(255,255,255,0.5)', cursor: 'pointer', fontFamily: 'var(--font-body)',
-              }}
-            >
-              ⚗ Brew
-            </button>
-            <ConnectionStatus status={connectionStatus} roomCode={roomCode} />
-          </div>
+          <ConnectionStatus status={connectionStatus} roomCode={roomCode} />
         </div>
 
         {error && (
@@ -247,7 +233,8 @@ export function DropGame() {
           onAction={(action, amount) => sendAction(action, amount)}
           onDropCard={(idx) => dropCard(idx as 0 | 1 | 2)}
         />
-        <BrewReference open={brewRefOpen} onClose={() => setBrewRefOpen(false)} />
+        </div>
+        <BrewSidebar open={brewOpen} onToggle={() => setBrewOpen(o => !o)} activeBrew={activeBrew} />
       </div>
     )
   }

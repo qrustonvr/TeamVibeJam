@@ -10,8 +10,6 @@ export function ActiveModifier({ brew }: ActiveModifierProps) {
   const [showTooltip, setShowTooltip] = useState(false)
   const color = BREW_MODIFIER_COLORS[brew.modifier]
 
-  if (brew.modifier === 'calm-waters') return null
-
   return (
     <div style={{ position: 'relative', display: 'inline-flex' }}>
       <div

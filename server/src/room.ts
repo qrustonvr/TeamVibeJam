@@ -1,7 +1,7 @@
 import { v4 as uuidv4 } from 'uuid'
 import type WebSocket from 'ws'
 import type { ServerMessage } from '@shared/protocol.js'
-import type { DropPhase, Card } from '@shared/gameTypes.js'
+import type { DropPhase, Card, BrewModifier } from '@shared/gameTypes.js'
 import { ANTE_AMOUNT, ACTION_TIMER_MS, DROP_TIMER_MS, PAYOUT_PAUSE_MS, RECONNECT_HOLD_MS } from '@shared/constants.js'
 import {
   dealHand, dealFlop, dealTurn, dealRiver,
@@ -13,7 +13,7 @@ import {
   getValidActions, rotateDealerIndex, anyActivePlayersHaveChips, autoDropChoice,
   nextUndroppedSeat,
 } from './gameEngine.js'
-import { resolveBrews } from './brewEngine.js'
+import { brewFromModifier } from './brewEngine.js'
 import { assignSession, lookupSession, scheduleExpiry, cancelExpiry } from './sessionStore.js'
 import type { ServerRoomState, ServerSeat } from './types.js'
 import { seatToPublic } from './types.js'
@@ -44,6 +44,8 @@ export class Room {
       nextAnteMultiplier: 1,
       turnIsHidden: false,
       maxBetOverride: 0,
+      omens: [],
+      omenMappings: [],
     }
   }
 
@@ -65,6 +67,7 @@ export class Room {
       holeCards: [] as unknown as [Card, Card, Card],
       droppedCard: null,
       exposedCard: null,
+      votedOmen: null,
       sessionToken: token,
       ws,
       lastAction: null,
@@ -210,6 +213,20 @@ export class Room {
     this.setPhase('deal')
     dealHand(this.state)
 
+    // Generate 3 omens for this hand
+    const ALL_MODIFIERS: BrewModifier[] = [
+      'nuke', 'chain-lightning', 'royal-tax', 'underdog', 'bleeding-pot',
+      'grave-dig', 'jackpot', 'sabotage', 'fire-sale', 'blackout',
+    ]
+    const shuffled = [...ALL_MODIFIERS].sort(() => Math.random() - 0.5)
+    this.state.omens = shuffled.slice(0, 3)
+
+    // Generate private omen mappings (shuffled assignment of the 3 omens to each seat's 3 card slots)
+    this.state.omenMappings = []
+    for (const seat of this.state.seats) {
+      this.state.omenMappings[seat.seatIndex] = [...this.state.omens].sort(() => Math.random() - 0.5)
+    }
+
     // Send 3 hole cards privately to each player
     for (const seat of this.state.seats) {
       this.sendTo(seat.seatIndex, {
@@ -220,7 +237,21 @@ export class Room {
       this.broadcastAll({ type: 'HOLE_CARDS_DEALT', seatIndex: seat.seatIndex })
     }
 
-    setTimeout(() => this.startBetting1(), 800)
+    setTimeout(() => this.startOmensReveal(), 800)
+  }
+
+  startOmensReveal(): void {
+    this.setPhase('omens-reveal')
+    this.broadcastAll({ type: 'OMENS_REVEALED', omens: this.state.omens })
+    // Send private card-to-omen mappings to each player
+    for (const seat of this.state.seats) {
+      this.sendTo(seat.seatIndex, {
+        type: 'OMEN_MAPPINGS',
+        mappings: this.state.omenMappings[seat.seatIndex] ?? [],
+      })
+    }
+    this.logAndBroadcast(`Omens: ${this.state.omens.join(' · ')}`)
+    setTimeout(() => this.startBetting1(), 3000)
   }
 
   startBetting1(): void {
@@ -256,9 +287,33 @@ export class Room {
 
   startBrewReveal(): void {
     this.clearTimer()
-    const droppedCards = collectDropZone(this.state)
-    const brew = resolveBrews(droppedCards)
+    collectDropZone(this.state)
+
+    // Tally omen votes to determine the modifier
+    const voteTally: Record<string, number> = {}
+    for (const seat of this.state.seats) {
+      if (!seat.folded && seat.votedOmen) {
+        voteTally[seat.votedOmen] = (voteTally[seat.votedOmen] ?? 0) + 1
+      }
+    }
+
+    // Winning omen = most votes; ties broken randomly among tied omens
+    let winningOmen: BrewModifier = this.state.omens[0] ?? 'fire-sale'
+    let maxVotes = -1
+    const tiedOmens: BrewModifier[] = []
+    for (const omen of this.state.omens) {
+      const votes = voteTally[omen] ?? 0
+      if (votes > maxVotes) { maxVotes = votes; tiedOmens.length = 0; tiedOmens.push(omen) }
+      else if (votes === maxVotes) { tiedOmens.push(omen) }
+    }
+    winningOmen = tiedOmens[Math.floor(Math.random() * tiedOmens.length)]
+
+    const brew = brewFromModifier(winningOmen)
     this.state.activeBrew = brew
+
+    // Broadcast vote tallies alongside the brew reveal
+    const omenVotes: Record<string, number> = {}
+    for (const omen of this.state.omens) omenVotes[omen] = voteTally[omen] ?? 0
 
     this.setPhase('brew_reveal')
     this.broadcastAll({ type: 'BREW_REVEAL', brew, dropZone: this.state.dropZone })
@@ -360,10 +415,6 @@ export class Room {
         this.broadcastState()
         break
 
-      case 'calm-waters':
-        this.logAndBroadcast('🌊 Calm Waters — no modifier this round.')
-        this.broadcastState()
-        break
     }
 
     this.startBetting3()
@@ -556,6 +607,10 @@ export class Room {
   processDrop(seatIndex: number, cardIndex: 0 | 1 | 2): void {
     const seat = this.state.seats[seatIndex]
     if (seat.hasDropped || seat.folded) return
+
+    // Record omen vote BEFORE drop removes the card
+    const votedOmen = this.state.omenMappings[seatIndex]?.[cardIndex]
+    if (votedOmen) seat.votedOmen = votedOmen
 
     applyDrop(this.state, seatIndex, cardIndex)
 

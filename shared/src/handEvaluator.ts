@@ -98,6 +98,16 @@ function score5(cards: Card[]): { score: number; name: string } {
   return { score, name: HAND_NAMES[handRank] }
 }
 
+function getCombinations<T>(arr: T[], k: number): T[][] {
+  if (k === 0) return [[]]
+  if (arr.length < k) return []
+  const [first, ...rest] = arr
+  return [
+    ...getCombinations(rest, k - 1).map(c => [first, ...c]),
+    ...getCombinations(rest, k),
+  ]
+}
+
 export function best5of(cards: Card[]): EvaluatedHand {
   if (cards.length < 5) {
     return { score: 0, name: 'High Card', cards: [] }
@@ -130,8 +140,26 @@ export function evaluatePlayerHand(
   communityCards: Card[],
   dropZone: Card[],
 ): EvaluatedHand {
-  const all = [...holeCards, ...communityCards, ...dropZone]
-  return best5of(all)
+  const community = [...communityCards, ...dropZone]
+
+  // Omaha rules: when a player has 3 hole cards, use exactly 2 from hand + 3 from community
+  if (holeCards.length >= 3 && community.length >= 3) {
+    const holeCombos = getCombinations(holeCards, 2)
+    const commCombos = getCombinations(community, 3)
+    let bestScore = -1
+    let bestName = 'High Card'
+    let bestCards: Card[] = []
+    for (const h of holeCombos) {
+      for (const c of commCombos) {
+        const five = [...h, ...c]
+        const { score, name } = score5(five)
+        if (score > bestScore) { bestScore = score; bestName = name; bestCards = five }
+      }
+    }
+    return bestScore === -1 ? { score: 0, name: 'High Card', cards: [] } : { score: bestScore, name: bestName, cards: bestCards }
+  }
+
+  return best5of([...holeCards, ...community])
 }
 
 export function compareHands(a: EvaluatedHand, b: EvaluatedHand): number {

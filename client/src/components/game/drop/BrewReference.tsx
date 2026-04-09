@@ -24,7 +24,6 @@ const BREW_ENTRIES: BrewEntry[] = [
   { modifier: 'sabotage',       trigger: '♣ Clubs majority among dropped cards',                    category: 'Suit' },
   { modifier: 'fire-sale',      trigger: 'All dropped cards are red (♥ + ♦)',                       category: 'Color' },
   { modifier: 'blackout',       trigger: 'All dropped cards are black (♠ + ♣)',                     category: 'Color' },
-  { modifier: 'calm-waters',    trigger: 'Mixed colors — no pattern matched',                       category: 'Color' },
 ]
 
 const CATEGORIES = ['Rank', 'Suit', 'Color'] as const
@@ -32,7 +31,7 @@ const CATEGORIES = ['Rank', 'Suit', 'Color'] as const
 const CATEGORY_NOTE: Record<string, string> = {
   Rank:  'Rank patterns checked first — they override suit and color patterns.',
   Suit:  'Majority = both cards match (2 players) or >50% share a suit (3+ players).',
-  Color: 'Fallback when no rank or suit pattern triggers.',
+  Color: 'Fallback when no rank or suit pattern triggers. Tied omens are broken randomly.',
 }
 
 export function BrewReference({ open, onClose }: BrewReferenceProps) {

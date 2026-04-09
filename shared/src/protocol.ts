@@ -1,4 +1,4 @@
-import type { DropPhase, PublicSeat, RoomSnapshot, HandWinner, Card, BrewResult } from './gameTypes.js'
+import type { DropPhase, PublicSeat, RoomSnapshot, HandWinner, Card, BrewResult, BrewModifier, ShowdownPlayerInfo } from './gameTypes.js'
 
 // ─── CLIENT → SERVER ─────────────────────────────────────────────────────────
 
@@ -31,7 +31,9 @@ export type ServerMessage =
   | { type: 'ACTION_ACK';         seatIndex: number; action: string; amount: number; pot: number; currentBetLevel: number; stack: number }
   | { type: 'COMMUNITY_CARDS';    cards: Card[] }
   | { type: 'HOLE_CARDS_REVEAL';  reveals: Array<{ seatIndex: number; cards: Card[] }> }
-  | { type: 'HAND_RESULT';        winners: HandWinner[]; allSeats: PublicSeat[] }
+  | { type: 'HAND_RESULT';        winners: HandWinner[]; allSeats: PublicSeat[]; showdownPlayers?: ShowdownPlayerInfo[] }
+  | { type: 'OMENS_REVEALED';     omens: BrewModifier[] }
+  | { type: 'OMEN_MAPPINGS';      mappings: BrewModifier[] }
   | { type: 'STACKS_UPDATE';      seats: PublicSeat[] }
   | { type: 'REJOIN_ACK';         state: RoomSnapshot }
   | { type: 'REJOIN_REJECTED';    reason: string }

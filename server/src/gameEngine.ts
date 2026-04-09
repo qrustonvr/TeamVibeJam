@@ -34,6 +34,7 @@ export function dealHand(state: ServerRoomState): void {
     seat.hasDropped = false
     seat.droppedCard = null
     seat.exposedCard = null
+    seat.votedOmen = null
     seat.lastAction = null
 
     // Deduct ante

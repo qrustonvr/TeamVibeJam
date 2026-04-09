@@ -1,5 +1,5 @@
 import type WebSocket from 'ws'
-import type { Card, DropPhase, PublicSeat, HandWinner, BrewResult } from '@shared/gameTypes.js'
+import type { Card, DropPhase, PublicSeat, HandWinner, BrewResult, BrewModifier } from '@shared/gameTypes.js'
 
 export interface ServerSeat {
   seatIndex: number
@@ -14,6 +14,7 @@ export interface ServerSeat {
   holeCards: [Card, Card, Card] | [Card, Card]
   droppedCard: Card | null
   exposedCard: Card | null   // for Sabotage brew
+  votedOmen: BrewModifier | null  // which omen this seat voted for at drop
   sessionToken: string
   ws: WebSocket | null
   lastAction: string | null
@@ -42,6 +43,9 @@ export interface ServerRoomState {
   nextAnteMultiplier: number   // 1 normally, 2 if Royal Tax queued
   turnIsHidden: boolean        // BLACKOUT: turn dealt face-down
   maxBetOverride: number       // FIRE SALE: effectively Infinity
+  // Omens system
+  omens: BrewModifier[]        // 3 omens for this hand
+  omenMappings: BrewModifier[][] // omenMappings[seatIndex][cardIndex] → which omen that card votes for
 }
 
 export interface BettingAction {

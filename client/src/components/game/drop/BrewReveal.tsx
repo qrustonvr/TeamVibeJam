@@ -1,17 +1,19 @@
 import { useEffect, useState } from 'react'
-import type { BrewResult, Card } from '@shared/gameTypes'
+import type { BrewResult, Card, BrewModifier } from '@shared/gameTypes'
 import { BREW_MODIFIER_COLORS } from '@/utils/brewResolver'
 import { CardView } from './CardView'
+import { OmensDisplay } from './OmensDisplay'
 
 interface BrewRevealProps {
   brew: BrewResult
   dropZone: Card[]
+  omens?: BrewModifier[]
+  omenVotes?: Record<string, number>
 }
 
-export function BrewReveal({ brew, dropZone }: BrewRevealProps) {
+export function BrewReveal({ brew, dropZone, omens, omenVotes }: BrewRevealProps) {
   const [stage, setStage] = useState<'cards' | 'analyzing' | 'announce'>('cards')
   const color = BREW_MODIFIER_COLORS[brew.modifier]
-  const isCalm = brew.modifier === 'calm-waters'
 
   useEffect(() => {
     const t1 = setTimeout(() => setStage('analyzing'), 800)
@@ -42,18 +44,23 @@ export function BrewReveal({ brew, dropZone }: BrewRevealProps) {
         ))}
       </div>
 
-      {/* Analyzing pulse */}
+      {/* Analyzing pulse + omen vote tally */}
       {stage === 'analyzing' && (
-        <div style={{
-          fontFamily: 'var(--font-body)',
-          color: 'rgba(255,255,255,0.5)',
-          fontSize: 12,
-          letterSpacing: 4,
-          textTransform: 'uppercase',
-          animation: 'glow 1s ease-in-out infinite',
-        }}>
-          Brewing…
-        </div>
+        <>
+          {omens && omens.length > 0 && omenVotes && (
+            <OmensDisplay omens={omens} omenVotes={omenVotes} />
+          )}
+          <div style={{
+            fontFamily: 'var(--font-body)',
+            color: 'rgba(255,255,255,0.5)',
+            fontSize: 12,
+            letterSpacing: 4,
+            textTransform: 'uppercase',
+            animation: 'glow 1s ease-in-out infinite',
+          }}>
+            Counting Votes…
+          </div>
+        </>
       )}
 
       {/* Brew announcement */}
@@ -69,12 +76,12 @@ export function BrewReveal({ brew, dropZone }: BrewRevealProps) {
             }
           `}</style>
 
-          <div style={{ fontSize: isCalm ? 36 : 52 }}>{brew.icon}</div>
+          <div style={{ fontSize: 52 }}>{brew.icon}</div>
 
           <div style={{
             fontFamily: 'var(--font-display)',
             color,
-            fontSize: isCalm ? 20 : 28,
+            fontSize: 28,
             letterSpacing: 4,
             textShadow: `0 0 30px ${color}`,
           }}>

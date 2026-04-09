@@ -55,15 +55,18 @@ const BREW_DEFS: Record<BrewModifier, { name: string; description: string; icon:
   'sabotage':      { name: 'SABOTAGE',      icon: '🗡️',  description: "Everyone's strongest card is exposed!" },
   'fire-sale':     { name: 'FIRE SALE',     icon: '🔥',  description: 'All betting limits removed for this hand!' },
   'blackout':      { name: 'BLACKOUT',      icon: '🌑',  description: 'The turn card is hidden. Good luck.' },
-  'calm-waters':   { name: 'CALM WATERS',   icon: '🌊',  description: 'No modifier this round.' },
 }
 
 function makeResult(modifier: BrewModifier): BrewResult {
   return { modifier, ...BREW_DEFS[modifier] }
 }
 
+export function brewFromModifier(modifier: BrewModifier): BrewResult {
+  return makeResult(modifier)
+}
+
 export function resolveBrews(droppedCards: Card[]): BrewResult {
-  if (droppedCards.length === 0) return makeResult('calm-waters')
+  if (droppedCards.length === 0) return makeResult(Math.random() < 0.5 ? 'fire-sale' : 'blackout')
 
   const ranks = droppedCards.map(c => c.rankIndex)
   const uniqueRanks = [...new Set(ranks)]
@@ -94,6 +97,6 @@ export function resolveBrews(droppedCards: Card[]): BrewResult {
   if (colors.every(c => c === 'red'))   return makeResult('fire-sale')
   if (colors.every(c => c === 'black')) return makeResult('blackout')
 
-  // Priority 11: Fallback
-  return makeResult('calm-waters')
+  // Priority 11: Fallback — randomly fire-sale or blackout
+  return makeResult(Math.random() < 0.5 ? 'fire-sale' : 'blackout')
 }
