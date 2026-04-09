@@ -6,7 +6,7 @@ interface GameTableProps {
 
 export function GameTable({ children }: GameTableProps) {
   return (
-    <main className="flex-1 flex items-center justify-center p-4 overflow-visible relative">
+    <main className="flex-1 flex items-stretch justify-center p-4 overflow-visible relative">
       {/* Ambient room glow */}
       <div
         className="absolute inset-0 pointer-events-none"
@@ -19,7 +19,7 @@ export function GameTable({ children }: GameTableProps) {
       <div className="table-scanline absolute inset-0 pointer-events-none overflow-hidden" />
 
       {/* Content */}
-      <div className="relative z-10 w-full max-w-5xl">
+      <div className="relative z-10 w-full max-w-screen-2xl flex flex-col">
         {children}
       </div>
     </main>

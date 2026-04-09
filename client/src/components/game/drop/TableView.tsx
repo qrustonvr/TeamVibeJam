@@ -222,6 +222,7 @@ export function TableView({
   return (
     <div style={{
       width: '100%',
+      flex: 1,
       display: 'flex',
       flexDirection: 'column',
       gap: 6,
@@ -272,7 +273,7 @@ export function TableView({
                   pot={pot}
                   turnIsHidden={isBlackout}
                 />
-                {(isOmensReveal || omens.length > 0) && !isBrewReveal && !isShowdown && (
+                {(isOmensReveal || omens.length > 0) && !activeBrew && !isBrewReveal && !isShowdown && (
                   <OmensDisplay omens={omens} />
                 )}
                 {activeBrew && <ActiveModifier brew={activeBrew} />}
@@ -334,87 +335,79 @@ export function TableView({
           )
         })}
 
-        {/* Local player seat (visual slot 3 — bottom-center) */}
-        {(() => {
-          const pos = SEAT_POSITIONS[3]
-          return (
-            <div style={{
-              position: 'absolute',
-              left: pos.left,
-              top: pos.top,
-              transform: pos.transform,
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              gap: 4,
-            }}>
-              {/* Cards toward table center */}
-              <HoleCards
-                cards={yourCards}
-                isDropPhase={isDropPhase}
-                hasDropped={mySeat?.hasDropped ?? false}
-                onDrop={isYourDropTurn ? handleDropCard : undefined}
-                faceDown={false}
-              />
-              {/* Badge */}
-              <div style={{
-                padding: '3px 8px',
-                borderRadius: 4,
-                background: isMyTurnActive ? 'rgba(212,175,55,0.2)' : 'rgba(0,0,0,0.5)',
-                border: isMyTurnActive ? '1px solid var(--gold)' : '1px solid rgba(212,175,55,0.3)',
-                fontFamily: 'var(--font-body)',
-                fontSize: 11,
-                color: 'var(--gold)',
-                whiteSpace: 'nowrap' as const,
-                boxShadow: isMyTurnActive ? '0 0 12px rgba(212,175,55,0.3)' : 'none',
-                transition: 'all 0.3s',
-              }}>
-                ⭐ You
-              </div>
-              {mySeat && (
-                <div style={{ display: 'flex', gap: 8, fontFamily: 'var(--font-body)', fontSize: 11 }}>
-                  <span style={{ color: 'var(--gold-dim)' }}>◆ {mySeat.stack}</span>
-                  {mySeat.currentBet > 0 && (
-                    <span style={{ color: '#a3e635' }}>Bet: {mySeat.currentBet}</span>
-                  )}
-                </div>
-              )}
-              {mySeat?.exposedCard && (
-                <span style={{ color: '#c084fc', fontSize: 10, fontFamily: 'var(--font-body)' }}>
-                  🗡️ {mySeat.exposedCard.display}
-                </span>
+        {/* Local player seat slot 3 — empty, badge moved below oval */}
+      </div>
+
+      {/* ── Controls panel + log — anchored to bottom ───────────── */}
+      <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: 6 }}>
+        {/* Player badge + stack */}
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+          <div style={{
+            padding: '3px 8px',
+            borderRadius: 4,
+            background: isMyTurnActive ? 'rgba(212,175,55,0.2)' : 'rgba(0,0,0,0.5)',
+            border: isMyTurnActive ? '1px solid var(--gold)' : '1px solid rgba(212,175,55,0.3)',
+            fontFamily: 'var(--font-body)',
+            fontSize: 11,
+            color: 'var(--gold)',
+            whiteSpace: 'nowrap' as const,
+            boxShadow: isMyTurnActive ? '0 0 12px rgba(212,175,55,0.3)' : 'none',
+            transition: 'all 0.3s',
+          }}>
+            ⭐ You
+          </div>
+          {mySeat && (
+            <div style={{ display: 'flex', gap: 8, fontFamily: 'var(--font-body)', fontSize: 11 }}>
+              <span style={{ color: 'var(--gold-dim)' }}>◆ {mySeat.stack}</span>
+              {mySeat.currentBet > 0 && (
+                <span style={{ color: '#a3e635' }}>Bet: {mySeat.currentBet}</span>
               )}
             </div>
-          )
-        })()}
-      </div>
-
-      {/* ── Controls panel (below the oval) ──────────────────────── */}
-      {/* minHeight reserves space for betting controls so the panel never collapses between phases */}
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, minHeight: 56 }}>
-        <div style={{ width: '100%', maxWidth: 300 }}>
-          {isYourTurn ? (
-            <TimerBar deadline={actionDeadline} totalMs={30_000} />
-          ) : (
-            <div style={{ height: 4 }} />
+          )}
+          {mySeat?.exposedCard && (
+            <span style={{ color: '#c084fc', fontSize: 10, fontFamily: 'var(--font-body)' }}>
+              🗡️ {mySeat.exposedCard.display}
+            </span>
           )}
         </div>
-        {isBettingPhase && (
-          <BettingControls
-            isYourTurn={isYourTurn}
-            pot={pot}
-            currentBetLevel={currentBetLevel}
-            myCurrentBet={mySeat?.currentBet ?? 0}
-            myStack={mySeat?.stack ?? 0}
-            activeSeatName={activeSeat?.displayName}
-            activeBrew={activeBrew}
-            onAction={onAction}
-          />
-        )}
-      </div>
 
-      {/* Game log */}
-      <GameLog messages={log} />
+        {/* Player's hole cards */}
+        <div style={{ display: 'flex', justifyContent: 'center' }}>
+          <HoleCards
+            cards={yourCards}
+            isDropPhase={isDropPhase}
+            hasDropped={mySeat?.hasDropped ?? false}
+            onDrop={isYourDropTurn ? handleDropCard : undefined}
+            faceDown={false}
+          />
+        </div>
+
+        {/* minHeight reserves space for betting controls so the panel never collapses between phases */}
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, minHeight: 56 }}>
+          <div style={{ width: '100%', maxWidth: 300 }}>
+            {isYourTurn ? (
+              <TimerBar deadline={actionDeadline} totalMs={30_000} />
+            ) : (
+              <div style={{ height: 4 }} />
+            )}
+          </div>
+          {isBettingPhase && (
+            <BettingControls
+              isYourTurn={isYourTurn}
+              pot={pot}
+              currentBetLevel={currentBetLevel}
+              myCurrentBet={mySeat?.currentBet ?? 0}
+              myStack={mySeat?.stack ?? 0}
+              activeSeatName={activeSeat?.displayName}
+              activeBrew={activeBrew}
+              onAction={onAction}
+            />
+          )}
+        </div>
+
+        {/* Game log */}
+        <GameLog messages={log} />
+      </div>
     </div>
   )
 }

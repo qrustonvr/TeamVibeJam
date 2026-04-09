@@ -51,7 +51,7 @@ export function OmensDisplay({ omens, omenVotes, winningOmen }: OmensDisplayProp
                 minWidth: 52,
               }}
             >
-              <span style={{ fontSize: isWinner ? 18 : 14, transition: 'font-size 0.3s' }}>{def.icon}</span>
+              <span style={{ fontSize: 14 }}>{def.icon}</span>
               <span style={{
                 fontFamily: 'var(--font-body)',
                 fontSize: 8,
