@@ -273,9 +273,6 @@ export function TableView({
                   pot={pot}
                   turnIsHidden={isBlackout}
                 />
-                {(isOmensReveal || omens.length > 0) && !activeBrew && !isBrewReveal && !isShowdown && (
-                  <OmensDisplay omens={omens} />
-                )}
                 {activeBrew && <ActiveModifier brew={activeBrew} />}
               </div>
 
@@ -340,6 +337,13 @@ export function TableView({
 
       {/* ── Controls panel + log — anchored to bottom ───────────── */}
       <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: 6 }}>
+        {/* Omens display */}
+        {(isOmensReveal || omens.length > 0) && !activeBrew && !isBrewReveal && !isShowdown && (
+          <div style={{ display: 'flex', justifyContent: 'center' }}>
+            <OmensDisplay omens={omens} />
+          </div>
+        )}
+
         {/* Player badge + stack */}
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
           <div style={{
