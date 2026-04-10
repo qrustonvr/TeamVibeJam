@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import type { ServerMessage, ClientMessage } from '@shared/protocol'
-import type { RoomSnapshot } from '@shared/gameTypes'
+import type { RoomSnapshot, HandWinner, ShowdownPlayerInfo, BrewModifier } from '@shared/gameTypes'
 
 const WS_URL = (import.meta.env.VITE_WS_URL as string | undefined) ?? 'ws://localhost:3001'
 
@@ -14,6 +14,11 @@ export interface MultiplayerState {
   sessionToken: string | null
   error: string | null
   log: string[]
+  handWinners: HandWinner[] | null
+  showdownPlayers: ShowdownPlayerInfo[] | null
+  omens: BrewModifier[]
+  myOmenMappings: BrewModifier[]
+  chatBubbles: Record<number, string>
 }
 
 export interface SocketActions {
@@ -22,6 +27,7 @@ export interface SocketActions {
   startGame: () => void
   sendAction: (action: string, amount?: number) => void
   dropCard: (cardIndex: 0 | 1 | 2) => void
+  sendChat: (message: string) => void
   clearError: () => void
   disconnect: () => void
 }
@@ -46,10 +52,13 @@ export function useSocket(): [MultiplayerState, SocketActions] {
   const wsRef = useRef<WebSocket | null>(null)
   const reconnectAttemptsRef = useRef(0)
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const chatTimersRef = useRef<Record<number, ReturnType<typeof setTimeout>>>({})
   const pendingJoinRef = useRef<{ type: 'create'; displayName: string; maxPlayers: number } | { type: 'join'; roomCode: string; displayName: string } | null>(null)
   const mpStateRef = useRef<MultiplayerState>({
     gameState: null, connectionStatus: 'disconnected',
     roomCode: null, seatIndex: null, sessionToken: null, error: null, log: [],
+    handWinners: null, showdownPlayers: null, omens: [], myOmenMappings: [],
+    chatBubbles: {},
   })
 
   const [mpState, setMpState] = useState<MultiplayerState>({
@@ -60,6 +69,11 @@ export function useSocket(): [MultiplayerState, SocketActions] {
     sessionToken: null,
     error: null,
     log: [],
+    handWinners: null,
+    showdownPlayers: null,
+    omens: [],
+    myOmenMappings: [],
+    chatBubbles: {},
   })
 
   // Keep ref in sync for use inside closures
@@ -132,7 +146,20 @@ export function useSocket(): [MultiplayerState, SocketActions] {
         setMpState(s => s.gameState ? {
           ...s,
           gameState: { ...s.gameState, phase: msg.phase },
+          // Reset hand-scoped data when a new hand begins
+          ...(msg.phase === 'deal' ? {
+            handWinners: null, showdownPlayers: null,
+            omens: [], myOmenMappings: [],
+          } : {}),
         } : s)
+        break
+
+      case 'OMENS_REVEALED':
+        setMpState(s => ({ ...s, omens: msg.omens }))
+        break
+
+      case 'OMEN_MAPPINGS':
+        setMpState(s => ({ ...s, myOmenMappings: msg.mappings }))
         break
 
       case 'HOLE_CARDS':
@@ -224,6 +251,8 @@ export function useSocket(): [MultiplayerState, SocketActions] {
         setMpState(s => s.gameState ? {
           ...s,
           gameState: { ...s.gameState, seats: msg.allSeats },
+          handWinners: msg.winners,
+          showdownPlayers: msg.showdownPlayers ?? null,
         } : s)
         msg.winners.forEach(w => {
           appendLog(`${msg.allSeats.find(s => s.seatIndex === w.seatIndex)?.displayName} wins ${w.potWon} with ${w.handName}`)
@@ -248,6 +277,22 @@ export function useSocket(): [MultiplayerState, SocketActions] {
       case 'GAME_LOG':
         appendLog(msg.message)
         break
+
+      case 'CHAT': {
+        const { seatIndex, displayName, message } = msg
+        // Show bubble, auto-clear after 5s
+        if (chatTimersRef.current[seatIndex]) clearTimeout(chatTimersRef.current[seatIndex])
+        setMpState(s => ({ ...s, chatBubbles: { ...s.chatBubbles, [seatIndex]: message } }))
+        chatTimersRef.current[seatIndex] = setTimeout(() => {
+          setMpState(s => {
+            const next = { ...s.chatBubbles }
+            delete next[seatIndex]
+            return { ...s, chatBubbles: next }
+          })
+        }, 5000)
+        appendLog(`${displayName}: ${message}`)
+        break
+      }
 
       case 'GAME_STARTING':
         appendLog(`Game starting in ${msg.countdown}...`)
@@ -367,6 +412,7 @@ export function useSocket(): [MultiplayerState, SocketActions] {
       gameState: null, connectionStatus: 'disconnected',
       roomCode: null, seatIndex: null, sessionToken: null,
       error: null, log: [],
+      handWinners: null, showdownPlayers: null, omens: [], myOmenMappings: [],
     })
   }, [])
 

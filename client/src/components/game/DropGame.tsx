@@ -253,7 +253,9 @@ export function DropGame() {
   // ─── Mode: multiplayer ───────────────────────────────────────────────────
 
   if (mode === 'multiplayer') {
-    const { gameState, connectionStatus, roomCode, seatIndex, error, log: mpLog } = mpState
+    const { gameState, connectionStatus, roomCode, seatIndex, error, log: mpLog,
+            handWinners: mpHandWinners, showdownPlayers: mpShowdownPlayers,
+            omens: mpOmens, myOmenMappings } = mpState
     const { createRoom, joinRoom, startGame, sendAction, dropCard, clearError, disconnect } = mpActions
 
     if (!gameState || gameState.phase === 'lobby') {
@@ -297,14 +299,20 @@ export function DropGame() {
     const isYourDropTurn = gameState.phase === 'drop' &&
       !gameState.seats.find(s => s.seatIndex === seatIndex)?.hasDropped
 
-    const handWinners: HandWinner[] = []
     const activeBrew = gameState.activeBrew as BrewResult | null | undefined
+
+    // Build omenMappings in the same shape as solo: BrewModifier[][]
+    // Server only sends this player's own mappings; fill the rest with empty
+    const mpOmenMappings: import('@shared/gameTypes').BrewModifier[][] = gameState.seats.map(s =>
+      s.seatIndex === (seatIndex ?? 0) ? myOmenMappings : []
+    )
 
     return (
       <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'row', gap: 0 }}>
         <FiendSidebar
           dropZone={gameState.dropZone}
           activeBrew={activeBrew}
+          omens={mpOmens}
           phase={gameState.phase}
           seats={gameState.seats}
           yourSeatIndex={seatIndex ?? 0}
@@ -364,10 +372,13 @@ export function DropGame() {
           isYourTurn={isYourTurn}
           isYourDropTurn={isYourDropTurn}
           actionDeadline={gameState.actionDeadline}
-          handWinners={handWinners}
+          handWinners={mpHandWinners}
           log={mpLog}
           dropsReceived={gameState.seats.filter(s => !s.folded && s.hasDropped).length}
           activeBrew={activeBrew}
+          omens={mpOmens}
+          omenMappings={mpOmenMappings}
+          showdownPlayers={mpShowdownPlayers}
           onAction={(action, amount) => sendAction(action, amount)}
           onDropCard={(idx) => dropCard(idx as 0 | 1 | 2)}
         />

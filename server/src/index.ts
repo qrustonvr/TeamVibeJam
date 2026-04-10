@@ -226,6 +226,22 @@ function handleMessage(ws: WebSocket, msg: ClientMessage): void {
       break
     }
 
+    case 'CHAT': {
+      const room = getRoomBySeat(ws)
+      if (!room) return
+      const seat = room.findSeatByWs(ws)
+      if (!seat) return
+      const text = msg.message.slice(0, 120).trim()
+      if (!text) return
+      room.broadcastAll({
+        type: 'CHAT',
+        seatIndex: seat.seatIndex,
+        displayName: seat.displayName,
+        message: text,
+      })
+      break
+    }
+
     default:
       break
   }

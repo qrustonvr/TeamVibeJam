@@ -9,6 +9,7 @@ export type ClientMessage =
   | { type: 'START_GAME' }
   | { type: 'DROP_CARD';  cardIndex: 0 | 1 | 2 }
   | { type: 'ACTION';     action: 'fold' | 'check' | 'call' | 'raise' | 'all-in'; amount?: number }
+  | { type: 'CHAT';       message: string }
 
 // ─── SERVER → CLIENT ─────────────────────────────────────────────────────────
 
@@ -39,6 +40,7 @@ export type ServerMessage =
   | { type: 'REJOIN_REJECTED';    reason: string }
   | { type: 'ERROR';              code: ErrorCode; message: string }
   | { type: 'GAME_LOG';           message: string }
+  | { type: 'CHAT';               seatIndex: number; displayName: string; message: string }
 
 export type ErrorCode =
   | 'ROOM_NOT_FOUND'
