@@ -92,6 +92,7 @@ export function Lobby({ onStartSolo, onCreateRoom, onJoinRoom, isConnecting = fa
             <option value={2}>2 AI</option>
             <option value={3}>3 AI</option>
             <option value={4}>4 AI</option>
+            <option value={5}>5 AI</option>
           </select>
           <Button variant="primary" fullWidth onClick={() => onStartSolo(aiCount)}>
             Deal Cards
