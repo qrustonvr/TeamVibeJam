@@ -148,7 +148,7 @@ export function DropGame() {
   // ─── Mode: solo ──────────────────────────────────────────────────────────
 
   if (mode === 'solo') {
-    const { state, isYourTurn, isYourDropTurn, yourCards, startGame: _unused, playerAction, dropCard, reset, omens, omenMappings, showdownPlayers } = solo
+    const { state, isYourTurn, isYourDropTurn, yourCards, startGame: _unused, playerAction, dropCard, reset, omens, omenMappings, showdownPlayers, nextHand } = solo
     void _unused
 
     const seats: PublicSeat[] = state.seats.map(s => ({
@@ -200,9 +200,10 @@ export function DropGame() {
           activeBrew={state.activeBrew}
           omens={omens}
           phase={state.phase}
-          playerName={state.seats[0]?.displayName}
-          playerStack={state.seats[0]?.stack}
-          playerLastAction={state.seats[0]?.lastAction ?? null}
+          seats={seats}
+          yourSeatIndex={0}
+          activeSeatIndex={state.activeSeatIndex}
+          actionDeadline={soloDeadline}
         />
         <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 8px', alignItems: 'center' }}>
@@ -239,6 +240,7 @@ export function DropGame() {
             showdownPlayers={showdownPlayers}
             onAction={(action, amount) => { playerAction(action, amount) }}
             onDropCard={(idx) => { dropCard(idx) }}
+            onNextHand={() => { nextHand() }}
             chatBubbles={chatBubbles}
             onChat={(msg) => handleChat(0, msg, 'You')}
           />
@@ -304,6 +306,10 @@ export function DropGame() {
           dropZone={gameState.dropZone}
           activeBrew={activeBrew}
           phase={gameState.phase}
+          seats={gameState.seats}
+          yourSeatIndex={seatIndex ?? 0}
+          activeSeatIndex={gameState.activeSeatIndex}
+          actionDeadline={gameState.actionDeadline}
         />
         <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
         <div style={{

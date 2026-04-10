@@ -1,4 +1,5 @@
-import type { BrewModifier, BrewResult, Card, DropPhase } from '@shared/gameTypes'
+import { useEffect, useRef, useState } from 'react'
+import type { BrewModifier, BrewResult, Card, DropPhase, PublicSeat } from '@shared/gameTypes'
 import { BREW_DEFS, BREW_MODIFIER_COLORS } from '@/utils/brewResolver'
 import { CardView } from './CardView'
 
@@ -37,9 +38,9 @@ const PHASE_LABELS: Partial<Record<DropPhase | 'lobby', string>> = {
   'betting_1':    'Pre-flop betting',
   'flop':         'Flop',
   'betting_2':    'Post-flop betting',
-  'drop':         'Drop Phase',
-  'brew_reveal':  'Brew Reveal',
-  'betting_3':    'Post-drop betting',
+  'drop':         'The Offering',
+  'brew_reveal':  'Sacrifice Circle',
+  'betting_3':    'Post-offering betting',
   'turn':         'Turn',
   'betting_4':    'Post-turn betting',
   'river':        'River',
@@ -56,18 +57,124 @@ const ACTION_COLORS: Record<string, string> = {
   'all-in':'#a855f7',
 }
 
+// ── Inline countdown timer bar ────────────────────────────────────────────────
+function TimerBar({ deadline, totalMs = 20_000 }: { deadline: number | null; totalMs?: number }) {
+  const [pct, setPct] = useState(1.0)
+  const frameRef = useRef<number | null>(null)
+
+  useEffect(() => {
+    if (!deadline) { setPct(1.0); return }
+    const tick = () => {
+      const remaining = Math.max(0, deadline - Date.now())
+      setPct(remaining / totalMs)
+      if (remaining > 0) frameRef.current = requestAnimationFrame(tick)
+    }
+    frameRef.current = requestAnimationFrame(tick)
+    return () => { if (frameRef.current) cancelAnimationFrame(frameRef.current) }
+  }, [deadline, totalMs])
+
+  const hue = Math.round(pct * 120)
+  return (
+    <div style={{ height: 3, borderRadius: 2, background: 'rgba(255,255,255,0.08)', overflow: 'hidden', marginTop: 4 }}>
+      <div style={{
+        height: '100%',
+        width: `${pct * 100}%`,
+        background: `hsl(${hue}, 90%, 55%)`,
+        borderRadius: 2,
+        transition: 'width 0.1s linear',
+      }} />
+    </div>
+  )
+}
+
+// ── Single player row ─────────────────────────────────────────────────────────
+// Fixed height always — reserves space for action pill and timer so layout never shifts.
+function PlayerRow({ seat, isYou, isActive, deadline }: {
+  seat: PublicSeat
+  isYou: boolean
+  isActive: boolean
+  deadline: number | null
+}) {
+  const dimmed = seat.folded || !seat.isConnected
+  return (
+    <div style={{
+      padding: '6px 12px',
+      borderBottom: '1px solid rgba(255,255,255,0.05)',
+      background: isActive ? 'rgba(212,175,55,0.07)' : 'transparent',
+      borderLeft: isActive ? '2px solid var(--gold)' : '2px solid transparent',
+      opacity: dimmed ? 0.45 : 1,
+      transition: 'opacity 0.3s, background 0.3s',
+      // Fixed height so entries never resize
+      height: 54,
+      boxSizing: 'border-box' as const,
+      display: 'flex',
+      flexDirection: 'column',
+      justifyContent: 'center',
+      gap: 0,
+    }}>
+      {/* Name + bankroll row */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 4 }}>
+        <span style={{
+          fontFamily: 'var(--font-body)',
+          fontSize: 11, fontWeight: isYou ? 700 : 400,
+          color: isYou ? 'var(--gold)' : '#e5e7eb',
+          whiteSpace: 'nowrap' as const,
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+        }}>
+          {isYou ? '⭐ ' : ''}{seat.displayName}
+        </span>
+        <span style={{
+          fontFamily: 'var(--font-body)',
+          fontSize: 10,
+          color: 'var(--gold-dim)',
+          flexShrink: 0,
+        }}>
+          ◆ {seat.stack}
+        </span>
+      </div>
+
+      {/* Action pill — always occupies the same vertical space */}
+      <div style={{ height: 18, display: 'flex', alignItems: 'center', marginTop: 2 }}>
+        {seat.lastAction && (
+          <span style={{
+            display: 'inline-block',
+            padding: '1px 6px',
+            borderRadius: 3,
+            background: ACTION_COLORS[seat.lastAction] ?? 'rgba(255,255,255,0.15)',
+            fontFamily: 'var(--font-body)',
+            fontSize: 9, fontWeight: 700,
+            color: '#000',
+            textTransform: 'uppercase' as const,
+            letterSpacing: 1,
+          }}>
+            {seat.lastAction}
+          </span>
+        )}
+      </div>
+
+      {/* Timer bar — always rendered, invisible when not active */}
+      <TimerBar deadline={isActive ? deadline : null} />
+    </div>
+  )
+}
+
 interface FiendSidebarProps {
   dropZone: Card[]
   activeBrew?: BrewResult | null
   omens?: BrewModifier[]
   omenVotes?: Record<string, number>
   phase: DropPhase | 'lobby'
-  playerName?: string
-  playerStack?: number
-  playerLastAction?: string | null
+  seats?: PublicSeat[]
+  yourSeatIndex?: number
+  activeSeatIndex?: number
+  actionDeadline?: number | null
 }
 
-export function FiendSidebar({ dropZone, activeBrew, omens = [], omenVotes, phase, playerName, playerStack, playerLastAction }: FiendSidebarProps) {
+export function FiendSidebar({
+  dropZone, activeBrew, omens = [], omenVotes, phase,
+  seats = [], yourSeatIndex = 0, activeSeatIndex = -1, actionDeadline = null,
+}: FiendSidebarProps) {
   const brew = activeBrew ?? null
   const fiend = brew ? FIEND_DEFS[brew.modifier] : null
   const fiendImg = brew ? FIEND_IMAGES[brew.modifier] : null
@@ -105,7 +212,7 @@ export function FiendSidebar({ dropZone, activeBrew, omens = [], omenVotes, phas
           textAlign: 'center',
           marginBottom: 8,
         }}>
-          {dropZone.length > 0 ? '⚗ The Brew ⚗' : '═══ Drop Zone ═══'}
+          {dropZone.length > 0 ? '⚗ The Sacrifice Circle ⚗' : '═ Sacrifice Circle ═'}
         </div>
         <div style={{ display: 'flex', justifyContent: 'center', gap: 6 }}>
           {dropZone.length === 0
@@ -293,63 +400,28 @@ export function FiendSidebar({ dropZone, activeBrew, omens = [], omenVotes, phas
           </div>
         </>
       )}
-      {/* ── Player Info ──────────────────────────────────── */}
-      {playerName !== undefined && (
-        <div style={{
-          marginTop: 'auto',
-          padding: '10px 12px 14px',
-          borderTop: '1px solid rgba(212,175,55,0.15)',
-        }}>
+
+      {/* ── Players ───────────────────────────────────────── */}
+      {seats.length > 0 && (
+        <div style={{ marginTop: 'auto', borderTop: '1px solid rgba(212,175,55,0.2)' }}>
           <div style={{
+            padding: '6px 12px 4px',
             fontFamily: 'var(--font-body)',
             fontSize: 9, letterSpacing: 2,
             color: 'rgba(255,255,255,0.35)',
             textTransform: 'uppercase',
-            marginBottom: 6,
           }}>
-            You
+            Players
           </div>
-
-          {/* Name */}
-          <div style={{
-            fontFamily: 'var(--font-display)',
-            fontSize: 14, fontWeight: 700,
-            color: 'var(--gold)',
-            letterSpacing: 1,
-            marginBottom: 2,
-          }}>
-            {playerName}
-          </div>
-
-          {/* Bankroll */}
-          {playerStack !== undefined && (
-            <div style={{
-              fontFamily: 'var(--font-body)',
-              fontSize: 12,
-              color: 'var(--gold-dim)',
-              marginBottom: 6,
-            }}>
-              ◆ {playerStack}
-            </div>
-          )}
-
-          {/* Last action */}
-          {playerLastAction && (
-            <div style={{
-              display: 'inline-block',
-              padding: '2px 8px',
-              borderRadius: 3,
-              background: ACTION_COLORS[playerLastAction] ?? 'rgba(255,255,255,0.2)',
-              fontFamily: 'var(--font-body)',
-              fontSize: 10,
-              color: '#000',
-              fontWeight: 700,
-              textTransform: 'uppercase' as const,
-              letterSpacing: 1,
-            }}>
-              {playerLastAction}
-            </div>
-          )}
+          {seats.map(seat => (
+            <PlayerRow
+              key={seat.seatIndex}
+              seat={seat}
+              isYou={seat.seatIndex === yourSeatIndex}
+              isActive={seat.seatIndex === activeSeatIndex}
+              deadline={seat.seatIndex === activeSeatIndex ? actionDeadline : null}
+            />
+          ))}
         </div>
       )}
     </div>

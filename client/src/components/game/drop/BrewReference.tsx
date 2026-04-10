@@ -36,10 +36,10 @@ const CATEGORY_NOTE: Record<string, string> = {
 
 export function BrewReference({ open, onClose }: BrewReferenceProps) {
   return (
-    <Modal open={open} onClose={onClose} title="The Brew — Modifier Reference" panelClassName="max-w-2xl">
+    <Modal open={open} onClose={onClose} title="The Sacrifice Circle — Modifier Reference" panelClassName="max-w-2xl">
       <div style={{ maxHeight: '70vh', overflowY: 'auto', paddingRight: 4, display: 'flex', flexDirection: 'column', gap: 20 }}>
         <div style={{ fontFamily: 'var(--font-body)', fontSize: 12, color: 'rgba(255,255,255,0.5)', lineHeight: 1.6 }}>
-          After everyone drops a card, The Brew analyzes the combination and triggers a game-altering modifier.
+          After everyone offers a card, the Sacrifice Circle analyzes the combination and triggers a game-altering modifier.
           Priority: Rank patterns → Suit majority → Color patterns.
         </div>
 

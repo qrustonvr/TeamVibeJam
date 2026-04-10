@@ -7,12 +7,11 @@ import { CommunityCards } from './CommunityCards'
 import { BettingControls } from './BettingControls'
 import { DropSelect } from './DropSelect'
 import { BrewReveal } from './BrewReveal'
-import { ActiveModifier } from './ActiveModifier'
 import { OMEN_IMAGES } from './OmensDisplay'
 import { Showdown } from './Showdown'
 import { TimerBar } from './TimerBar'
 import { GameLog } from './GameLog'
-import { BREW_DEFS, BREW_MODIFIER_COLORS } from '@/utils/brewResolver'
+import { BREW_DEFS } from '@/utils/brewResolver'
 
 interface TableViewProps {
   phase: DropPhase | 'lobby'
@@ -48,11 +47,11 @@ const OPPONENT_SLOT_CONFIG: Record<number, {
   badge: { left: string; top: string }
   cards: { left: string; top: string }
 }> = {
-  0: { badge: { left: '50%',  top: '12%' }, cards: { left: '50%',  top: '23%' } }, // top-center
-  1: { badge: { left: '85%',  top: '14%' }, cards: { left: '63%',  top: '28%' } }, // top-right
-  2: { badge: { left: '85%',  top: '46%' }, cards: { left: '62%',  top: '52%' } }, // bot-right
-  4: { badge: { left: '15%',  top: '46%' }, cards: { left: '38%',  top: '52%' } }, // bot-left
-  5: { badge: { left: '15%',  top: '14%' }, cards: { left: '37%',  top: '28%' } }, // top-left
+  0: { badge: { left: '49.5%', top: '5%'  }, cards: { left: '50%',  top: '23%' } }, // top-center
+  1: { badge: { left: '66%',  top: '8.5%'}, cards: { left: '63%',  top: '28%' } }, // top-right
+  2: { badge: { left: '71.5%',top: '47%' }, cards: { left: '62%',  top: '52%' } }, // bot-right
+  4: { badge: { left: '29.5%',top: '47%' }, cards: { left: '38%',  top: '52%' } }, // bot-left
+  5: { badge: { left: '33.5%',top: '8.5%'}, cards: { left: '37%',  top: '28%' } }, // top-left
 }
 
 // The visual slot indices used for opponents (everything except slot 3)
@@ -182,86 +181,20 @@ function SeatPortrait({
   )
 }
 
-// ── TimerRing — SVG ring only, no portrait image ──────────────────────────────
-// Used for opponent seats whose character art comes from the full-canvas overlays.
-
-function TimerRing({
-  size = 36, isActive, deadline,
-}: {
-  size?: number; isActive: boolean; deadline: number | null
-}) {
-  const [pct, setPct] = useState(1.0)
-  const [activeSince, setActiveSince] = useState<number | null>(null)
-
-  useEffect(() => {
-    if (isActive) {
-      setActiveSince(prev => prev ?? Date.now())
-    } else {
-      setActiveSince(null)
-      setPct(1.0)
-    }
-  }, [isActive])
-
-  useEffect(() => {
-    const effectiveDeadline = deadline ?? (activeSince ? activeSince + 20_000 : null)
-    if (!isActive || !effectiveDeadline) { setPct(1.0); return }
-    const tick = () => setPct(Math.max(0, (effectiveDeadline - Date.now()) / 20_000))
-    tick()
-    const id = setInterval(tick, 100)
-    return () => clearInterval(id)
-  }, [isActive, deadline, activeSince])
-
-  const STROKE = 3
-  const r = (size - STROKE) / 2
-  const circ = 2 * Math.PI * r
-  const hue = Math.round(pct * 120)
-  const ringColor = isActive ? `hsl(${hue}, 90%, 55%)` : 'transparent'
-  const offset = circ * (1 - Math.min(Math.max(pct, 0), 1))
-
-  if (!isActive) return null
-
-  return (
-    <svg
-      width={size} height={size}
-      style={{ transform: 'rotate(-90deg)', flexShrink: 0 }}
-    >
-      <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="rgba(0,0,0,0.4)" strokeWidth={STROKE} />
-      <circle
-        cx={size / 2} cy={size / 2} r={r}
-        fill="none"
-        stroke={ringColor}
-        strokeWidth={STROKE}
-        strokeDasharray={circ}
-        strokeDashoffset={offset}
-        strokeLinecap="round"
-      />
-    </svg>
-  )
-}
-
-const ACTION_COLORS: Record<string, string> = {
-  fold: '#ef4444',
-  check: '#6b7280',
-  call: '#22c55e',
-  raise: 'var(--gold)',
-  'all-in': '#a855f7',
-}
 
 // ── Sub-components ──────────────────────────────────────────────────────────
 
-// Name + stack + action badge — floats above the character's head
-function SeatNameBadge({ seat, isActive, showOmaha = false, deadline, chatMessage }: {
+// Name badge only — floats above the character's head
+function SeatNameBadge({ seat, isActive, chatMessage }: {
   seat: PublicSeat; isActive: boolean; showOmaha?: boolean; deadline: number | null; chatMessage?: string
 }) {
   const dimmed = seat.folded || !seat.isConnected || seat.eliminated
   return (
     <div style={{
-      display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3,
       opacity: dimmed ? 0.4 : 1, transition: 'opacity 0.3s',
       position: 'relative',
     }}>
       {chatMessage && <ChatBubble message={chatMessage} />}
-      <TimerRing isActive={isActive} deadline={deadline} />
       <div style={{
         padding: '3px 8px', borderRadius: 4,
         background: isActive ? 'rgba(212,175,55,0.2)' : 'rgba(0,0,0,0.55)',
@@ -273,44 +206,7 @@ function SeatNameBadge({ seat, isActive, showOmaha = false, deadline, chatMessag
       }}>
         {seat.displayName}
         {!seat.isConnected && <span style={{ color: '#ef4444', marginLeft: 4 }}>●</span>}
-        {seat.isConnected && isActive && <span style={{ marginLeft: 4 }}>●</span>}
       </div>
-      <div style={{ fontFamily: 'var(--font-body)', fontSize: 11, color: 'var(--gold-dim)' }}>
-        ◆ {seat.stack}
-      </div>
-      {seat.currentBet > 0 && !seat.eliminated && (
-        <ChipStack amount={seat.currentBet} chipSize={22} maxTypes={3} showLabel={false} />
-      )}
-      {seat.eliminated ? (
-        <div style={{
-          padding: '1px 6px', borderRadius: 3,
-          background: 'rgba(0,0,0,0.6)', border: '1px solid rgba(255,255,255,0.15)',
-          fontSize: 9, fontFamily: 'var(--font-body)',
-          color: 'rgba(255,255,255,0.4)',
-          fontWeight: 700, textTransform: 'uppercase' as const, letterSpacing: 1,
-        }}>
-          ☠ BUST
-        </div>
-      ) : seat.lastAction && (
-        <div style={{
-          padding: '1px 6px', borderRadius: 3,
-          background: ACTION_COLORS[seat.lastAction] ?? 'rgba(255,255,255,0.2)',
-          fontSize: 9, fontFamily: 'var(--font-body)', color: '#000',
-          fontWeight: 700, textTransform: 'uppercase' as const, letterSpacing: 1,
-        }}>
-          {seat.lastAction}
-        </div>
-      )}
-      {showOmaha && (
-        <div style={{
-          padding: '1px 5px', borderRadius: 3,
-          background: 'rgba(139,92,246,0.2)', border: '1px solid rgba(139,92,246,0.6)',
-          fontSize: 8, fontFamily: 'var(--font-body)', color: '#c084fc',
-          fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase' as const,
-        }}>
-          OMAHA
-        </div>
-      )}
     </div>
   )
 }
@@ -503,11 +399,12 @@ export function TableView({
           }}
         />
 
-        {/* ── Layer 2: player table (open = gravestones visible when omens set) ── */}
+        {/* ── Layer 2: player table — open (tombstones visible) before omen picked,
+                closed after brew_reveal and for the rest of the hand ── */}
         <img
-          src={omens.length > 0
-            ? '/TeamVibeJam/assets/PlayerTable.png'
-            : '/TeamVibeJam/assets/PlayerTableClosed.png'}
+          src={['brew_reveal','betting_3','turn','betting_4','river','betting_5','showdown','payout'].includes(phase)
+            ? '/TeamVibeJam/assets/PlayerTableClosed.png'
+            : '/TeamVibeJam/assets/PlayerTable.png'}
           draggable={false}
           style={{
             position: 'absolute', inset: 0,
@@ -552,17 +449,7 @@ export function TableView({
               turnIsHidden={isBlackout}
             />
           </div>
-          {activeBrew && <ActiveModifier brew={activeBrew} />}
 
-          {isShowdown && handWinners && handWinners.length > 0 && (
-            <Showdown
-              winners={handWinners}
-              seats={seats}
-              activeBrew={activeBrew}
-              allPlayers={showdownPlayers ?? undefined}
-              onPlayAgain={onNextHand}
-            />
-          )}
         </div>
 
         {/* Opponent seats (visual slots 0, 1, 2, 4, 5)
@@ -651,11 +538,10 @@ export function TableView({
           )}
         </div>
 
-        {/* Gravestone omen labels — shown on the three gravestones when omens are set */}
+        {/* Gravestone omen icons — shown on the three gravestones when omens are set */}
         {omens.length > 0 && !activeBrew && !isShowdown && omens.slice(0, 3).map((omen, i) => {
           const slotX = [42.5, 50.5, 59][i] ?? 50
           const def = BREW_DEFS[omen]
-          const color = BREW_MODIFIER_COLORS[omen]
           const imgSrc = OMEN_IMAGES[omen]
           return (
             <div
@@ -663,25 +549,13 @@ export function TableView({
               style={{
                 position: 'absolute',
                 left: `${slotX}%`,
-                top: '63%',
+                top: '67%',
                 transform: 'translate(-50%, -50%)',
-                display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4,
                 zIndex: 3,
                 pointerEvents: 'none',
-                textAlign: 'center',
-                width: 90,
               }}
             >
-              <img src={imgSrc} alt={def.name} style={{ width: 52, height: 52, objectFit: 'contain' }} />
-              <span style={{
-                fontFamily: 'var(--font-body)', fontSize: 10,
-                fontWeight: 700, letterSpacing: 1,
-                textTransform: 'uppercase' as const,
-                color,
-                lineHeight: 1.2,
-              }}>
-                {def.name}
-              </span>
+              <img src={imgSrc} alt={def.name} style={{ width: 104, height: 104, objectFit: 'contain' }} />
             </div>
           )
         })}
@@ -726,6 +600,19 @@ export function TableView({
             omens={omens}
             omenVotes={omenVotes}
           />
+        )}
+
+        {/* Showdown — full table overlay */}
+        {isShowdown && handWinners && handWinners.length > 0 && (
+          <div style={{ position: 'absolute', inset: 0, zIndex: 30 }}>
+            <Showdown
+              winners={handWinners}
+              seats={seats}
+              activeBrew={activeBrew}
+              allPlayers={showdownPlayers ?? undefined}
+              onPlayAgain={onNextHand}
+            />
+          </div>
         )}
 
         {/* DropSelect — positioned over the player card table area */}

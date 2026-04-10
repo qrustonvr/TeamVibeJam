@@ -2,7 +2,8 @@ import type { Card, BrewModifier } from '@shared/gameTypes'
 import { CardView } from './CardView'
 import { TimerBar } from './TimerBar'
 import { DROP_TIMER_MS } from '@shared/constants'
-import { BREW_DEFS, BREW_MODIFIER_COLORS } from '@/utils/brewResolver'
+import { BREW_DEFS } from '@/utils/brewResolver'
+import { OMEN_IMAGES } from './OmensDisplay'
 
 // Fallback hint when omen mappings aren't available yet
 function cardBrewHint(card: Card): string {
@@ -42,7 +43,7 @@ export function DropSelect({ cards, hasDropped, dropsReceived, totalDroppers, de
         textShadow: '0 0 20px var(--gold)',
         animation: 'glow 2.5s ease-in-out infinite',
       }}>
-        ✦ THE DROP ✦
+        ✦ THE OFFERING ✦
       </div>
 
       {!hasDropped ? (
@@ -51,7 +52,7 @@ export function DropSelect({ cards, hasDropped, dropsReceived, totalDroppers, de
             fontFamily: 'var(--font-body)', color: 'rgba(255,255,255,0.7)', fontSize: 13,
             textTransform: 'uppercase', letterSpacing: 1,
           }}>
-            Choose a card to send to The Brew
+            Choose a card to send to The Sacrifice Circle
           </div>
           <div style={{ display: 'flex', gap: 14 }}>
             {cards.map((card, i) => (
@@ -65,15 +66,12 @@ export function DropSelect({ cards, hasDropped, dropsReceived, totalDroppers, de
                   <CardView card={card} small onClick={() => onDrop(i)} selected={false} />
                 </div>
                 {omenMappings ? (
-                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
-                    <span style={{ fontSize: 12 }}>{BREW_DEFS[omenMappings[i]]?.icon}</span>
-                    <span style={{
-                      fontFamily: 'var(--font-body)', fontSize: 7,
-                      color: BREW_MODIFIER_COLORS[omenMappings[i]] ?? 'rgba(255,255,255,0.3)',
-                      letterSpacing: 1, textTransform: 'uppercase', textAlign: 'center',
-                    }}>
-                      {BREW_DEFS[omenMappings[i]]?.name}
-                    </span>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <img
+                      src={OMEN_IMAGES[omenMappings[i]]}
+                      alt={BREW_DEFS[omenMappings[i]]?.name}
+                      style={{ width: 48, height: 48, objectFit: 'contain' }}
+                    />
                   </div>
                 ) : (
                   <div style={{

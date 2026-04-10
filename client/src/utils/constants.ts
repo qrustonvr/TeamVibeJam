@@ -3,7 +3,7 @@ export const GAME_CONFIG = {
   MIN_BET: 10,
   MAX_BET: 500,
   CURRENCY_SYMBOL: '◆',
-  GAME_NAME: 'THE DROP',
+  GAME_NAME: 'THE OFFERING',
 } as const
 
 export const CHIP_VALUES = [10, 25, 50, 100] as const

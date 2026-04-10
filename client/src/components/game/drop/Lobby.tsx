@@ -44,7 +44,7 @@ export function Lobby({ onStartSolo, onCreateRoom, onJoinRoom, isConnecting = fa
         animation: 'glow 2.5s ease-in-out infinite',
         textAlign: 'center',
       }}>
-        THE DROP
+        THE OFFERING
       </div>
       <div style={{
         fontFamily: 'var(--font-body)', color: 'rgba(255,255,255,0.5)',

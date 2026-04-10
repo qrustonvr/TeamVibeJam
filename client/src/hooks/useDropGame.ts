@@ -658,7 +658,7 @@ export function useDropGame() {
     schedulePhase(() => {
       dispatch({ type: 'NEXT_HAND' })
       dispatch({ type: 'START_HAND' })
-    }, 3500)
+    }, 16000)
   }, [state.phase, state.handWinners, gameDispatch, schedulePhase])
 
   // ─── AI betting ───────────────────────────────────────────────────────────
@@ -746,5 +746,9 @@ export function useDropGame() {
       dispatch({ type: 'PLAYER_DROP', seatIndex: 0, cardIndex })
     },
     reset: () => dispatch({ type: 'RESET' }),
+    nextHand: () => {
+      dispatch({ type: 'NEXT_HAND' })
+      dispatch({ type: 'START_HAND' })
+    },
   }
 }

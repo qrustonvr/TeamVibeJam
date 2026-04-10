@@ -30,8 +30,8 @@ const SECTIONS: RuleSection[] = [
       '1. Pre-Flop Betting — bet on your 3-card starting hand.',
       '2. Flop — 3 community cards are revealed.',
       '3. Post-Flop Betting — bet before the drop.',
-      '4. THE DROP — all players secretly choose one of their 3 cards to discard. All reveal simultaneously.',
-      '5. THE BREW — the combination of dropped cards triggers a game-altering modifier.',
+      '4. THE OFFERING — all players secretly choose one of their 3 cards to discard. All reveal simultaneously.',
+      '5. THE SACRIFICE CIRCLE — the combination of offered cards triggers a game-altering modifier.',
       '6. Post-Brew Betting — bet knowing the modifier in effect.',
       '7. Turn — the 4th community card (may be hidden by BLACKOUT).',
       '8. Turn Betting.',
@@ -41,19 +41,19 @@ const SECTIONS: RuleSection[] = [
     ],
   },
   {
-    heading: 'THE DROP',
+    heading: 'THE OFFERING',
     body: [
       'Happens once per hand, after the flop + post-flop betting.',
-      'You hold 3 hole cards and must choose one to discard into the shared Drop Zone.',
+      'You hold 3 hole cards and must choose one to offer into the Sacrifice Circle.',
       'All players drop simultaneously — choices stay hidden until everyone has chosen.',
       'The card you drop is gone from your hand. Dropped cards do NOT count toward your final hand.',
       'If the timer runs out, your lowest-ranked card is auto-dropped.',
     ],
   },
   {
-    heading: 'THE BREW',
+    heading: 'THE SACRIFICE CIRCLE',
     body: [
-      'After all cards are dropped, The Brew analyzes the combination and triggers a modifier.',
+      'After all cards are offered, the Sacrifice Circle analyzes the combination and triggers a modifier.',
       'Rank patterns override suit patterns, which override color patterns.',
       'Examples: all same rank → ☢️ NUKE (board wiped); hearts majority → 💔 BLEEDING POT (pot doubled, winner splits); all black → 🌑 BLACKOUT (turn card hidden).',
       'Open the ⚗ Brew button during a game to see all 11 possible modifiers.',
@@ -125,7 +125,7 @@ export function RulesModal({ open, onClose }: RulesModalProps) {
     <Modal
       open={open}
       onClose={onClose}
-      title="How to Play — The Drop"
+      title="How to Play — The Offering"
       panelClassName="max-w-2xl"
     >
       <div

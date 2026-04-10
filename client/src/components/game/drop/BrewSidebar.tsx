@@ -1,5 +1,6 @@
 import type { BrewResult, BrewModifier } from '@shared/gameTypes'
 import { BREW_DEFS, BREW_MODIFIER_COLORS } from '@/utils/brewResolver'
+import { OMEN_IMAGES } from './OmensDisplay'
 
 interface BrewEntry {
   modifier: BrewModifier
@@ -42,21 +43,21 @@ export function BrewSidebar({ open, onToggle, activeBrew }: BrewSidebarProps) {
       flexDirection: 'row',
       flexShrink: 0,
     }}>
-      {/* Toggle tab */}
+      {/* Toggle tab — always left:-28 so it never overlaps the panel content */}
       <button
         onClick={onToggle}
         style={{
           position: 'absolute',
-          left: open ? 0 : -28,
+          left: -28,
           top: '50%',
           transform: 'translateY(-50%)',
           zIndex: 10,
           width: 28,
           padding: '8px 4px',
           borderRadius: '6px 0 0 6px',
-          background: 'rgba(212,175,55,0.12)',
-          border: '1px solid rgba(212,175,55,0.3)',
-          borderRight: open ? 'none' : '1px solid rgba(212,175,55,0.3)',
+          background: 'rgba(8,4,4,0.92)',
+          border: '1px solid rgba(212,175,55,0.2)',
+          borderRight: 'none',
           color: 'var(--gold)',
           cursor: 'pointer',
           fontSize: 12,
@@ -64,92 +65,105 @@ export function BrewSidebar({ open, onToggle, activeBrew }: BrewSidebarProps) {
           letterSpacing: 2,
           fontFamily: 'var(--font-body)',
           textTransform: 'uppercase' as const,
-          transition: 'left 0.3s ease',
         }}
         title={open ? 'Close Rite Reference' : 'Open Rite Reference'}
       >
         {open ? '✕' : '☠'}
       </button>
 
-      {/* Panel */}
+      {/* Sliding panel */}
       <div style={{
-        width: open ? 260 : 0,
+        width: open ? 220 : 0,
         overflow: 'hidden',
         transition: 'width 0.3s ease',
         flexShrink: 0,
       }}>
         <div style={{
-          width: 260,
+          width: 220,
           height: '100%',
           overflowY: 'auto',
-          background: 'rgba(10,10,20,0.95)',
-          border: '1px solid rgba(212,175,55,0.2)',
-          borderRadius: 8,
-          padding: '12px 10px',
+          overflowX: 'hidden',
+          background: 'rgba(8,4,4,0.92)',
+          borderLeft: '1px solid rgba(212,175,55,0.2)',
           display: 'flex',
           flexDirection: 'column',
-          gap: 14,
+          gap: 0,
         }}>
+
+          {/* Header */}
           <div style={{
+            padding: '10px 12px 8px',
+            borderBottom: '1px solid rgba(212,175,55,0.15)',
             fontFamily: 'var(--font-display)',
             color: 'var(--gold)',
-            fontSize: 13,
-            letterSpacing: 2,
+            fontSize: 11,
+            letterSpacing: 3,
             textAlign: 'center',
+            textTransform: 'uppercase',
           }}>
-            ☠ THE RITE
+            ☠ The Rite
           </div>
 
           <div style={{
-            fontFamily: 'var(--font-body)', fontSize: 10,
-            color: 'rgba(255,255,255,0.4)', lineHeight: 1.5, textAlign: 'center',
+            padding: '6px 12px 10px',
+            fontFamily: 'var(--font-body)', fontSize: 9,
+            color: 'rgba(255,255,255,0.35)', lineHeight: 1.5, textAlign: 'center',
+            borderBottom: '1px solid rgba(255,255,255,0.05)',
           }}>
             Dropped cards invoke an Omen. The winning Omen calls forth a Fiend.
           </div>
 
+          {/* Omen entries grouped by category */}
           {CATEGORIES.map(cat => (
-            <div key={cat}>
+            <div key={cat} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
               <div style={{
-                fontFamily: 'var(--font-body)', fontSize: 9, fontWeight: 700,
+                padding: '7px 12px 2px',
+                fontFamily: 'var(--font-body)', fontSize: 8, fontWeight: 700,
                 letterSpacing: '0.15em', textTransform: 'uppercase',
-                color: 'var(--gold)', marginBottom: 3,
+                color: 'var(--gold)',
               }}>
                 {cat} Patterns
               </div>
               <div style={{
-                fontFamily: 'var(--font-body)', fontSize: 9,
-                color: 'rgba(255,255,255,0.3)', marginBottom: 6, lineHeight: 1.4,
+                padding: '0 12px 4px',
+                fontFamily: 'var(--font-body)', fontSize: 8,
+                color: 'rgba(255,255,255,0.25)', lineHeight: 1.4,
               }}>
                 {CATEGORY_NOTE[cat]}
               </div>
 
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 3, padding: '0 8px 8px' }}>
                 {BREW_ENTRIES.filter(e => e.category === cat).map(entry => {
                   const def = BREW_DEFS[entry.modifier]
                   const color = BREW_MODIFIER_COLORS[entry.modifier]
                   const isActive = activeBrew?.modifier === entry.modifier
                   return (
                     <div key={entry.modifier} style={{
-                      display: 'flex', gap: 8, alignItems: 'flex-start',
+                      display: 'flex', gap: 8, alignItems: 'center',
                       padding: '5px 8px',
                       borderRadius: 5,
                       border: `1px solid ${isActive ? color : color + '28'}`,
                       background: isActive ? `${color}15` : `${color}08`,
                       transition: 'border-color 0.3s, background 0.3s',
                     }}>
-                      <span style={{ fontSize: 14, flexShrink: 0, lineHeight: 1.2 }}>{def.icon}</span>
+                      <img
+                        src={OMEN_IMAGES[entry.modifier]}
+                        alt={def.name}
+                        style={{ width: 28, height: 28, objectFit: 'contain', flexShrink: 0 }}
+                      />
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{
-                          fontFamily: 'var(--font-body)', fontSize: 9, fontWeight: 700,
+                          fontFamily: 'var(--font-body)', fontSize: 8, fontWeight: 700,
                           letterSpacing: 1, color,
+                          whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
                         }}>
-                          {def.name} {isActive && '← active'}
+                          {def.name}{isActive ? ' ← active' : ''}
                         </div>
                         <div style={{
-                          fontFamily: 'var(--font-body)', fontSize: 9,
-                          color: 'rgba(255,255,255,0.65)', marginTop: 1, lineHeight: 1.4,
+                          fontFamily: 'var(--font-body)', fontSize: 8,
+                          color: 'rgba(255,255,255,0.55)', marginTop: 1, lineHeight: 1.4,
                         }}>
-                          {def.description}
+                          {entry.trigger}
                         </div>
                       </div>
                     </div>
