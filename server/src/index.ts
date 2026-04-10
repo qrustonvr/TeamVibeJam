@@ -158,6 +158,7 @@ function handleMessage(ws: WebSocket, msg: ClientMessage): void {
           totalBetThisHand: s.totalBetThisHand,
           folded: s.folded,
           allIn: s.allIn,
+          eliminated: s.eliminated,
           isConnected: s.isConnected,
           hasDropped: s.hasDropped,
           cardCount: s.holeCards.length,

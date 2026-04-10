@@ -16,6 +16,7 @@ export interface LocalSeat {
   totalBetThisHand: number
   folded: boolean
   allIn: boolean
+  eliminated: boolean
   hasDropped: boolean
   holeCards: Card[]
   droppedCard: Card | null
@@ -113,7 +114,7 @@ function nextActivePlayerAfter(seats: LocalSeat[], from: number): number {
   const n = seats.length
   let i = (from + 1) % n
   for (let attempt = 0; attempt < n; attempt++) {
-    if (!seats[i].folded && !seats[i].allIn) return i
+    if (!seats[i].folded && !seats[i].allIn && !seats[i].eliminated) return i
     i = (i + 1) % n
   }
   return -1
@@ -258,13 +259,13 @@ function reducer(state: LocalGameState, action: LocalAction): LocalGameState {
     case 'START_GAME': {
       const playerSeat: LocalSeat = {
         seatIndex: 0, displayName: 'You', stack: 1000,
-        currentBet: 0, totalBetThisHand: 0, folded: false, allIn: false,
+        currentBet: 0, totalBetThisHand: 0, folded: false, allIn: false, eliminated: false,
         hasDropped: false, holeCards: [], droppedCard: null, votedOmen: null, exposedCard: null,
         lastAction: null, isAI: false, personality: 'balanced',
       }
       const aiSeats: LocalSeat[] = Array.from({ length: action.aiCount }, (_, i) => ({
         seatIndex: i + 1, displayName: `AI ${i + 1}`, stack: 1000,
-        currentBet: 0, totalBetThisHand: 0, folded: false, allIn: false,
+        currentBet: 0, totalBetThisHand: 0, folded: false, allIn: false, eliminated: false,
         hasDropped: false, holeCards: [], droppedCard: null, votedOmen: null, exposedCard: null,
         lastAction: null, isAI: true, personality: randomPersonality(),
       }))
@@ -276,6 +277,14 @@ function reducer(state: LocalGameState, action: LocalAction): LocalGameState {
       let pot = 0
       const anteAmount = ANTE_AMOUNT * state.nextAnteMultiplier
       const seats = state.seats.map(seat => {
+        // Eliminated players sit out — no cards, no ante, folded immediately
+        if (seat.eliminated) {
+          return {
+            ...seat, currentBet: 0, totalBetThisHand: 0, folded: true,
+            allIn: false, hasDropped: false, droppedCard: null,
+            votedOmen: null, exposedCard: null, holeCards: [], lastAction: null,
+          }
+        }
         const ante = Math.min(anteAmount, seat.stack)
         const { cards, remaining } = drawCards(deck, 3)
         deck = remaining
@@ -516,15 +525,19 @@ function reducer(state: LocalGameState, action: LocalAction): LocalGameState {
     }
 
     case 'NEXT_HAND': {
-      const alive = state.seats.filter(s => s.stack > 0)
-      if (alive.length < 2) return { ...state, phase: 'lobby' }
-      const n = state.seats.length
+      // Mark newly busted players as eliminated
+      const seats = state.seats.map(s =>
+        !s.eliminated && s.stack === 0 ? { ...s, eliminated: true } : s
+      )
+      const alive = seats.filter(s => !s.eliminated)
+      if (alive.length < 2) return { ...state, seats, phase: 'lobby' }
+      const n = seats.length
       let dealerIdx = state.dealerIndex
       for (let i = 0; i < n; i++) {
         dealerIdx = (dealerIdx + 1) % n
-        if (state.seats[dealerIdx].stack > 0) break
+        if (!seats[dealerIdx].eliminated) break
       }
-      return { ...state, dealerIndex: dealerIdx }
+      return { ...state, seats, dealerIndex: dealerIdx }
     }
 
     case 'RESET':

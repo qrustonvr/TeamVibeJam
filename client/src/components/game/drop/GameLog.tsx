@@ -17,7 +17,7 @@ export function GameLog({ messages }: GameLogProps) {
       border: '1px solid rgba(212,175,55,0.2)',
       borderRadius: 8,
       padding: '8px 12px',
-      maxHeight: 100,
+      maxHeight: 180,
       overflowY: 'auto',
       fontFamily: 'var(--font-body)',
       fontSize: 11,

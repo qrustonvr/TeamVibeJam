@@ -65,6 +65,7 @@ export interface PublicSeat {
   cardCount: number       // 3 before drop, 2 after
   lastAction: PlayerActionType | null
   exposedCard: Card | null  // for Sabotage brew: highest card flipped face-up
+  eliminated: boolean     // permanently out of chips after a hand
 }
 
 export interface PrivateSeat extends PublicSeat {

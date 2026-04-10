@@ -9,6 +9,7 @@ export interface ServerSeat {
   totalBetThisHand: number
   folded: boolean
   allIn: boolean
+  eliminated: boolean
   isConnected: boolean
   hasDropped: boolean
   holeCards: [Card, Card, Card] | [Card, Card]
@@ -94,6 +95,7 @@ export function seatToPublic(seat: ServerSeat): PublicSeat {
     totalBetThisHand: seat.totalBetThisHand,
     folded: seat.folded,
     allIn: seat.allIn,
+    eliminated: seat.eliminated,
     isConnected: seat.isConnected,
     hasDropped: seat.hasDropped,
     cardCount: seat.holeCards.length,

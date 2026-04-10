@@ -38,6 +38,8 @@ interface TableViewProps {
   onAction: (action: string, amount?: number) => void
   onDropCard: (cardIndex: number) => void
   onNextHand?: () => void
+  chatBubbles?: Record<number, string>   // seatIndex → message
+  onChat?: (message: string) => void
 }
 
 // Per-slot layout: badge hovers above the character's head; cards sit on the
@@ -66,13 +68,55 @@ const SLOT_PORTRAITS: Record<number, string> = {
 }
 const LOCAL_PORTRAIT = '/TeamVibeJam/assets/Sin.png'
 
+// ── ChatBubble ────────────────────────────────────────────────────────────────
+
+function ChatBubble({ message }: { message: string }) {
+  return (
+    <div style={{
+      position: 'absolute',
+      bottom: '110%',
+      left: '50%',
+      transform: 'translateX(-50%)',
+      background: 'rgba(20,8,8,0.95)',
+      border: '1px solid var(--gold-dim)',
+      borderRadius: 8,
+      padding: '5px 9px',
+      maxWidth: 180,
+      minWidth: 60,
+      fontFamily: 'var(--font-body)',
+      fontSize: 11,
+      color: '#e8ddd8',
+      whiteSpace: 'pre-wrap' as const,
+      wordBreak: 'break-word' as const,
+      zIndex: 50,
+      boxShadow: '0 2px 12px rgba(0,0,0,0.8)',
+      animation: 'chatIn 0.15s ease-out',
+      pointerEvents: 'none',
+    }}>
+      {message}
+      {/* Tail */}
+      <div style={{
+        position: 'absolute',
+        bottom: -6,
+        left: '50%',
+        transform: 'translateX(-50%)',
+        width: 0,
+        height: 0,
+        borderLeft: '6px solid transparent',
+        borderRight: '6px solid transparent',
+        borderTop: '6px solid var(--gold-dim)',
+      }} />
+    </div>
+  )
+}
+
 // ── SeatPortrait — circular portrait with green→red SVG timer ring ────────────
 // Used for the local player badge only (opponents use full-canvas overlays).
 
 function SeatPortrait({
-  src, size = 64, isActive, deadline, dimmed = false,
+  src, size = 64, isActive, deadline, dimmed = false, chatMessage,
 }: {
-  src: string; size?: number; isActive: boolean; deadline: number | null; dimmed?: boolean
+  src: string; size?: number; isActive: boolean; deadline: number | null; dimmed?: boolean; chatMessage?: string
 }) {
   const [pct, setPct] = useState(1.0)
   const [activeSince, setActiveSince] = useState<number | null>(null)
@@ -104,6 +148,8 @@ function SeatPortrait({
 
   return (
     <div style={{ position: 'relative', width: size, height: size, flexShrink: 0 }}>
+      {chatMessage && <ChatBubble message={chatMessage} />}
+      {/* Dark circular backing */}
       <div style={{ position: 'absolute', inset: 0, borderRadius: '50%', background: 'rgba(10,4,4,0.85)' }} />
       <img
         src={src}
@@ -204,15 +250,17 @@ const ACTION_COLORS: Record<string, string> = {
 // ── Sub-components ──────────────────────────────────────────────────────────
 
 // Name + stack + action badge — floats above the character's head
-function SeatNameBadge({ seat, isActive, showOmaha = false, deadline }: {
-  seat: PublicSeat; isActive: boolean; showOmaha?: boolean; deadline: number | null
+function SeatNameBadge({ seat, isActive, showOmaha = false, deadline, chatMessage }: {
+  seat: PublicSeat; isActive: boolean; showOmaha?: boolean; deadline: number | null; chatMessage?: string
 }) {
-  const dimmed = seat.folded || !seat.isConnected
+  const dimmed = seat.folded || !seat.isConnected || seat.eliminated
   return (
     <div style={{
       display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3,
       opacity: dimmed ? 0.4 : 1, transition: 'opacity 0.3s',
+      position: 'relative',
     }}>
+      {chatMessage && <ChatBubble message={chatMessage} />}
       <TimerRing isActive={isActive} deadline={deadline} />
       <div style={{
         padding: '3px 8px', borderRadius: 4,
@@ -230,10 +278,20 @@ function SeatNameBadge({ seat, isActive, showOmaha = false, deadline }: {
       <div style={{ fontFamily: 'var(--font-body)', fontSize: 11, color: 'var(--gold-dim)' }}>
         ◆ {seat.stack}
       </div>
-      {seat.currentBet > 0 && (
+      {seat.currentBet > 0 && !seat.eliminated && (
         <ChipStack amount={seat.currentBet} chipSize={22} maxTypes={3} showLabel={false} />
       )}
-      {seat.lastAction && (
+      {seat.eliminated ? (
+        <div style={{
+          padding: '1px 6px', borderRadius: 3,
+          background: 'rgba(0,0,0,0.6)', border: '1px solid rgba(255,255,255,0.15)',
+          fontSize: 9, fontFamily: 'var(--font-body)',
+          color: 'rgba(255,255,255,0.4)',
+          fontWeight: 700, textTransform: 'uppercase' as const, letterSpacing: 1,
+        }}>
+          ☠ BUST
+        </div>
+      ) : seat.lastAction && (
         <div style={{
           padding: '1px 6px', borderRadius: 3,
           background: ACTION_COLORS[seat.lastAction] ?? 'rgba(255,255,255,0.2)',
@@ -259,8 +317,8 @@ function SeatNameBadge({ seat, isActive, showOmaha = false, deadline }: {
 
 // Face-down hole cards — sits on the table in front of the character
 function SeatFaceDownCards({ seat }: { seat: PublicSeat }) {
-  const dimmed = seat.folded || !seat.isConnected
-  if (seat.cardCount === 0) return null
+  const dimmed = seat.folded || !seat.isConnected || seat.eliminated
+  if (seat.cardCount === 0 || seat.eliminated) return null
   return (
     <div style={{ display: 'flex', opacity: dimmed ? 0.35 : 1, transition: 'opacity 0.3s' }}>
       {Array.from({ length: seat.cardCount }).map((_, i) => (
@@ -268,6 +326,72 @@ function SeatFaceDownCards({ seat }: { seat: PublicSeat }) {
           <CardView card={null} faceDown small />
         </div>
       ))}
+    </div>
+  )
+}
+
+// ── ChatInput ────────────────────────────────────────────────────────────────
+
+const MAX_CHAT = 140
+
+function ChatInput({ onSend }: { onSend: (msg: string) => void }) {
+  const [value, setValue] = useState('')
+
+  const submit = () => {
+    const msg = value.trim()
+    if (!msg) return
+    onSend(msg)
+    setValue('')
+  }
+
+  return (
+    <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+      <input
+        type="text"
+        value={value}
+        maxLength={MAX_CHAT}
+        placeholder="Say something…"
+        onChange={e => setValue(e.target.value)}
+        onKeyDown={e => { if (e.key === 'Enter') submit() }}
+        style={{
+          flex: 1,
+          padding: '6px 10px',
+          borderRadius: 4,
+          background: 'rgba(0,0,0,0.5)',
+          border: '1px solid rgba(212,175,55,0.25)',
+          color: '#e8ddd8',
+          fontFamily: 'var(--font-body)',
+          fontSize: 11,
+          outline: 'none',
+        }}
+      />
+      <button
+        onClick={submit}
+        disabled={!value.trim()}
+        style={{
+          padding: '6px 14px',
+          borderRadius: 4,
+          background: value.trim() ? 'rgba(212,175,55,0.15)' : 'rgba(255,255,255,0.04)',
+          border: `1px solid ${value.trim() ? 'var(--gold-dim)' : 'rgba(255,255,255,0.08)'}`,
+          color: value.trim() ? 'var(--gold)' : 'rgba(255,255,255,0.2)',
+          fontFamily: 'var(--font-body)',
+          fontSize: 11,
+          cursor: value.trim() ? 'pointer' : 'default',
+          transition: 'all 0.15s',
+          letterSpacing: 1,
+        }}
+      >
+        Send
+      </button>
+      <span style={{
+        fontFamily: 'var(--font-body)',
+        fontSize: 9,
+        color: value.length > MAX_CHAT * 0.8 ? '#f59e0b' : 'rgba(255,255,255,0.2)',
+        minWidth: 28,
+        textAlign: 'right',
+      }}>
+        {MAX_CHAT - value.length}
+      </span>
     </div>
   )
 }
@@ -285,6 +409,8 @@ export function TableView({
   omenVotes,
   showdownPlayers,
   onAction, onDropCard, onNextHand,
+  chatBubbles = {},
+  onChat,
 }: TableViewProps) {
   const mySeat = seats.find(s => s.seatIndex === yourSeatIndex)
   const otherSeats = seats.filter(s => s.seatIndex !== yourSeatIndex)
@@ -308,6 +434,26 @@ export function TableView({
   useEffect(() => { preload('check', '/TeamVibeJam/audio/check.wav') }, [preload])
   useEffect(() => { preload('fold', '/TeamVibeJam/audio/fold.wav') }, [preload])
   useEffect(() => { if (isYourTurn || isYourDropTurn) play('your-turn') }, [isYourTurn, isYourDropTurn, play])
+
+  // Auto check/fold when turn timer expires
+  const onActionRef = useRef(onAction)
+  onActionRef.current = onAction
+  const autoStateRef = useRef({ currentBetLevel, yourSeatIndex, seats })
+  autoStateRef.current = { currentBetLevel, yourSeatIndex, seats }
+
+  useEffect(() => {
+    if (!isYourTurn || !actionDeadline) return
+    const remaining = actionDeadline - Date.now()
+    const fire = () => {
+      const { currentBetLevel: lvl, yourSeatIndex: idx, seats: ss } = autoStateRef.current
+      const mySeat = ss.find(s => s.seatIndex === idx)
+      const canCheck = (mySeat?.currentBet ?? 0) >= lvl
+      onActionRef.current(canCheck ? 'check' : 'fold')
+    }
+    if (remaining <= 0) { fire(); return }
+    const t = setTimeout(fire, remaining)
+    return () => clearTimeout(t)
+  }, [isYourTurn, actionDeadline])
 
   // Play sounds when opponents act
   const prevLastActions = useRef<Record<number, string | null>>({})
@@ -384,7 +530,7 @@ export function TableView({
                 position: 'absolute', inset: 0,
                 width: '100%', height: '100%',
                 pointerEvents: 'none', userSelect: 'none',
-                opacity: (seat.folded || !seat.isConnected) ? 0.25 : 1,
+                opacity: (seat.folded || !seat.isConnected || seat.eliminated) ? 0.25 : 1,
                 transition: 'opacity 0.4s',
               }}
             />
@@ -440,6 +586,7 @@ export function TableView({
                       isActive={isActive}
                       showOmaha={isPostDrop && seat.cardCount >= 3}
                       deadline={isActive ? actionDeadline : null}
+                      chatMessage={chatBubbles[seat.seatIndex]}
                     />
                   : <div style={{
                       padding: '2px 8px', borderRadius: 4,
@@ -478,6 +625,7 @@ export function TableView({
             size={56}
             isActive={isMyTurnActive}
             deadline={isMyTurnActive ? actionDeadline : null}
+            chatMessage={chatBubbles[yourSeatIndex]}
           />
           <div style={{
             padding: '3px 8px',
@@ -493,8 +641,8 @@ export function TableView({
           }}>
             ⭐ You
           </div>
-          {mySeat?.currentBet > 0 && (
-            <ChipStack amount={mySeat.currentBet} chipSize={24} maxTypes={3} showLabel={false} />
+          {(mySeat?.currentBet ?? 0) > 0 && (
+            <ChipStack amount={mySeat!.currentBet} chipSize={24} maxTypes={3} showLabel={false} />
           )}
           {mySeat?.exposedCard && (
             <span style={{ color: '#c084fc', fontSize: 10, fontFamily: 'var(--font-body)' }}>
@@ -628,6 +776,9 @@ export function TableView({
 
         {/* Game log */}
         <GameLog messages={log} />
+
+        {/* Chat input */}
+        {onChat && <ChatInput onSend={onChat} />}
       </div>
     </div>
   )

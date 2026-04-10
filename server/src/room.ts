@@ -62,6 +62,7 @@ export class Room {
       totalBetThisHand: 0,
       folded: false,
       allIn: false,
+      eliminated: false,
       isConnected: true,
       hasDropped: false,
       holeCards: [] as unknown as [Card, Card, Card],
