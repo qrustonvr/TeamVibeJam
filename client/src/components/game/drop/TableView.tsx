@@ -2,7 +2,6 @@ import { useEffect } from 'react'
 import type { DropPhase, PublicSeat, Card, HandWinner, BrewResult, BrewModifier, ShowdownPlayerInfo } from '@shared/gameTypes'
 import { useSound } from '@/hooks/useSound'
 import { CardView } from './CardView'
-import { HoleCards } from './HoleCards'
 import { CommunityCards } from './CommunityCards'
 import { BettingControls } from './BettingControls'
 import { DropSelect } from './DropSelect'
@@ -375,15 +374,64 @@ export function TableView({
           )}
         </div>
 
-        {/* Player's hole cards */}
+        {/* Player's hole cards on PlayerTable */}
         <div style={{ display: 'flex', justifyContent: 'center' }}>
-          <HoleCards
-            cards={yourCards}
-            isDropPhase={isDropPhase}
-            hasDropped={mySeat?.hasDropped ?? false}
-            onDrop={isYourDropTurn ? handleDropCard : undefined}
-            faceDown={false}
-          />
+          {(() => {
+            const hasDropped = mySeat?.hasDropped ?? false
+            // Flat card slot left-edges (px) inside a 480×270 container
+            // Slot x-centres at 35%, 50%, 65% → left = centre − 26 (half of 52px card width)
+            const CARD_W = 52, CARD_H = 76
+            const allSlotX = [142, 214, 286] as const
+            const slotX: number[] =
+              yourCards.length <= 1 ? [214] :
+              yourCards.length === 2 ? [142, 286] :
+              [142, 214, 286]
+            // Slot y-centre at 65% of 270px = 175px → top = 175 − 38 (half of 76px)
+            const cardTop = 137
+            return (
+              <div style={{ position: 'relative', width: 480, height: 270, flexShrink: 0, maxWidth: '100%' }}>
+                <img
+                  src="/TeamVibeJam/assets/PlayerTable.png"
+                  draggable={false}
+                  style={{
+                    position: 'absolute', inset: 0,
+                    width: '100%', height: '100%',
+                    mixBlendMode: 'lighten',
+                    pointerEvents: 'none', userSelect: 'none',
+                  }}
+                />
+                {yourCards.map((card, i) => (
+                  <div
+                    key={i}
+                    style={{
+                      position: 'absolute',
+                      left: slotX[i] ?? allSlotX[1],
+                      top: cardTop,
+                      width: CARD_W,
+                      height: CARD_H,
+                      cursor: isDropPhase && !hasDropped && isYourDropTurn ? 'pointer' : 'default',
+                    }}
+                  >
+                    <CardView
+                      card={card}
+                      onClick={isDropPhase && !hasDropped && isYourDropTurn ? () => handleDropCard(i) : undefined}
+                      selected={false}
+                    />
+                  </div>
+                ))}
+                {isDropPhase && !hasDropped && (
+                  <div style={{
+                    position: 'absolute', bottom: 12, left: 0, right: 0, textAlign: 'center',
+                    fontSize: 10, color: 'var(--gold)', fontFamily: 'var(--font-body)',
+                    letterSpacing: 1, textTransform: 'uppercase',
+                    animation: 'glow 2.5s ease-in-out infinite',
+                  }}>
+                    Select a card to drop
+                  </div>
+                )}
+              </div>
+            )
+          })()}
         </div>
 
         {/* minHeight reserves space for betting controls so the panel never collapses between phases */}
