@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import type { DropPhase, PublicSeat, Card, HandWinner, BrewResult, BrewModifier, ShowdownPlayerInfo } from '@shared/gameTypes'
 import { useSound } from '@/hooks/useSound'
 import { CardView } from './CardView'
@@ -53,6 +53,88 @@ const SEAT_POSITIONS = [
 // The visual slot indices used for opponents (everything except slot 3)
 const OPPONENT_SLOTS = [0, 1, 2, 4, 5] as const
 
+// Character portrait per visual seat slot
+const SLOT_PORTRAITS: Record<number, string> = {
+  0: '/TeamVibeJam/assets/Char__0000s_0000_char__0000_TopCenter.png',
+  1: '/TeamVibeJam/assets/Char__0000s_0005_char__0002_TopRight.png',
+  2: '/TeamVibeJam/assets/Char__0000s_0002_char__0005_BotRight.png',
+  4: '/TeamVibeJam/assets/Char__0000s_0001_char__0006_BotLeft.png',
+  5: '/TeamVibeJam/assets/Char__0000s_0006_char__0001_TopLeft.png',
+}
+const LOCAL_PORTRAIT = '/TeamVibeJam/assets/Sin.png'
+
+// ── SeatPortrait — circular portrait with green→red SVG timer ring ────────────
+
+function SeatPortrait({
+  src, size = 64, isActive, deadline, dimmed = false,
+}: {
+  src: string; size?: number; isActive: boolean; deadline: number | null; dimmed?: boolean
+}) {
+  const [pct, setPct] = useState(1.0)
+  const [activeSince, setActiveSince] = useState<number | null>(null)
+
+  // Track when this seat became active so AI turns get a self-managed 20s countdown
+  useEffect(() => {
+    if (isActive) {
+      setActiveSince(prev => prev ?? Date.now())
+    } else {
+      setActiveSince(null)
+      setPct(1.0)
+    }
+  }, [isActive])
+
+  // Tick the timer ring
+  useEffect(() => {
+    const effectiveDeadline = deadline ?? (activeSince ? activeSince + 20_000 : null)
+    if (!isActive || !effectiveDeadline) { setPct(1.0); return }
+    const tick = () => setPct(Math.max(0, (effectiveDeadline - Date.now()) / 20_000))
+    tick()
+    const id = setInterval(tick, 100)
+    return () => clearInterval(id)
+  }, [isActive, deadline, activeSince])
+
+  const STROKE = 3
+  const r = (size - STROKE) / 2
+  const circ = 2 * Math.PI * r
+  const hue = Math.round(pct * 120)
+  const ringColor = isActive ? `hsl(${hue}, 90%, 55%)` : 'rgba(255,255,255,0.12)'
+  const offset = circ * (1 - Math.min(Math.max(pct, 0), 1))
+
+  return (
+    <div style={{ position: 'relative', width: size, height: size, flexShrink: 0 }}>
+      {/* Dark circular backing */}
+      <div style={{ position: 'absolute', inset: 0, borderRadius: '50%', background: 'rgba(10,4,4,0.85)' }} />
+      <img
+        src={src}
+        draggable={false}
+        style={{
+          position: 'absolute', inset: 0,
+          width: '100%', height: '100%',
+          objectFit: 'contain',
+          objectPosition: 'center top',
+          borderRadius: '50%',
+          opacity: dimmed ? 0.3 : 1,
+        }}
+      />
+      <svg
+        width={size} height={size}
+        style={{ position: 'absolute', inset: 0, transform: 'rotate(-90deg)', pointerEvents: 'none' }}
+      >
+        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="rgba(0,0,0,0.5)" strokeWidth={STROKE} />
+        <circle
+          cx={size / 2} cy={size / 2} r={r}
+          fill="none"
+          stroke={ringColor}
+          strokeWidth={STROKE}
+          strokeDasharray={circ}
+          strokeDashoffset={isActive ? offset : 0}
+          strokeLinecap="round"
+        />
+      </svg>
+    </div>
+  )
+}
+
 const ACTION_COLORS: Record<string, string> = {
   fold: '#ef4444',
   check: '#6b7280',
@@ -101,69 +183,67 @@ interface SeatBlockProps {
   isActive: boolean
   cardsFirst: boolean
   showOmaha?: boolean
+  portrait: string
+  deadline: number | null
 }
 
-function SeatBlock({ seat, isActive, cardsFirst, showOmaha = false }: SeatBlockProps) {
+function SeatBlock({ seat, isActive, cardsFirst, showOmaha = false, portrait, deadline }: SeatBlockProps) {
   const dimmed = seat.folded || !seat.isConnected
 
   const badge = (
-    <div style={{
-      display: 'flex',
-      flexDirection: 'column',
-      alignItems: 'center',
-      gap: 2,
-      opacity: dimmed ? 0.4 : 1,
-      transition: 'opacity 0.3s',
-    }}>
-      <div style={{
-        padding: '3px 8px',
-        borderRadius: 4,
-        background: isActive ? 'rgba(212,175,55,0.2)' : 'rgba(0,0,0,0.5)',
-        border: isActive ? '1px solid var(--gold)' : '1px solid rgba(255,255,255,0.15)',
-        fontFamily: 'var(--font-body)',
-        fontSize: 11,
-        color: '#e5e7eb',
-        whiteSpace: 'nowrap' as const,
-        boxShadow: isActive ? '0 0 12px rgba(212,175,55,0.3)' : 'none',
-        transition: 'all 0.3s',
-      }}>
-        {seat.displayName}
-        {!seat.isConnected && <span style={{ color: '#ef4444', marginLeft: 4 }}>●</span>}
-        {seat.isConnected && isActive && <span style={{ marginLeft: 4 }}>●</span>}
-      </div>
-      <div style={{ fontFamily: 'var(--font-body)', fontSize: 11, color: 'var(--gold-dim)' }}>
-        ◆ {seat.stack}
-      </div>
-      {seat.currentBet > 0 && (
-        <div style={{ fontSize: 10, color: '#a3e635', fontFamily: 'var(--font-body)' }}>
-          Bet: {seat.currentBet}
-        </div>
-      )}
-      {seat.lastAction && (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}>
+      <SeatPortrait src={portrait} isActive={isActive} deadline={deadline} dimmed={dimmed} />
+      <div style={{ opacity: dimmed ? 0.4 : 1, transition: 'opacity 0.3s', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
         <div style={{
-          padding: '1px 6px',
-          borderRadius: 3,
-          background: ACTION_COLORS[seat.lastAction] ?? 'rgba(255,255,255,0.2)',
-          fontSize: 9,
+          padding: '3px 8px',
+          borderRadius: 4,
+          background: isActive ? 'rgba(212,175,55,0.2)' : 'rgba(0,0,0,0.5)',
+          border: isActive ? '1px solid var(--gold)' : '1px solid rgba(255,255,255,0.15)',
           fontFamily: 'var(--font-body)',
-          color: '#000',
-          fontWeight: 700,
-          textTransform: 'uppercase' as const,
-          letterSpacing: 1,
+          fontSize: 11,
+          color: '#e5e7eb',
+          whiteSpace: 'nowrap' as const,
+          boxShadow: isActive ? '0 0 12px rgba(212,175,55,0.3)' : 'none',
+          transition: 'all 0.3s',
         }}>
-          {seat.lastAction}
+          {seat.displayName}
+          {!seat.isConnected && <span style={{ color: '#ef4444', marginLeft: 4 }}>●</span>}
+          {seat.isConnected && isActive && <span style={{ marginLeft: 4 }}>●</span>}
         </div>
-      )}
-      {showOmaha && (
-        <div style={{
-          padding: '1px 5px', borderRadius: 3,
-          background: 'rgba(139,92,246,0.2)', border: '1px solid rgba(139,92,246,0.6)',
-          fontSize: 8, fontFamily: 'var(--font-body)', color: '#c084fc',
-          fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase' as const,
-        }}>
-          OMAHA
+        <div style={{ fontFamily: 'var(--font-body)', fontSize: 11, color: 'var(--gold-dim)' }}>
+          ◆ {seat.stack}
         </div>
-      )}
+        {seat.currentBet > 0 && (
+          <div style={{ fontSize: 10, color: '#a3e635', fontFamily: 'var(--font-body)' }}>
+            Bet: {seat.currentBet}
+          </div>
+        )}
+        {seat.lastAction && (
+          <div style={{
+            padding: '1px 6px',
+            borderRadius: 3,
+            background: ACTION_COLORS[seat.lastAction] ?? 'rgba(255,255,255,0.2)',
+            fontSize: 9,
+            fontFamily: 'var(--font-body)',
+            color: '#000',
+            fontWeight: 700,
+            textTransform: 'uppercase' as const,
+            letterSpacing: 1,
+          }}>
+            {seat.lastAction}
+          </div>
+        )}
+        {showOmaha && (
+          <div style={{
+            padding: '1px 5px', borderRadius: 3,
+            background: 'rgba(139,92,246,0.2)', border: '1px solid rgba(139,92,246,0.6)',
+            fontSize: 8, fontFamily: 'var(--font-body)', color: '#c084fc',
+            fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase' as const,
+          }}>
+            OMAHA
+          </div>
+        )}
+      </div>
     </div>
   )
 
@@ -324,7 +404,14 @@ export function TableView({
               }}
             >
               {seat
-                ? <SeatBlock seat={seat} isActive={seat.seatIndex === activeSeatIndex} cardsFirst={pos.cardsFirst} showOmaha={isPostDrop && seat.cardCount >= 3} />
+                ? <SeatBlock
+                    seat={seat}
+                    isActive={seat.seatIndex === activeSeatIndex}
+                    cardsFirst={pos.cardsFirst}
+                    showOmaha={isPostDrop && seat.cardCount >= 3}
+                    portrait={SLOT_PORTRAITS[visualSlot] ?? '/TeamVibeJam/assets/Char__0000s_0000_char__0000_TopCenter.png'}
+                    deadline={seat.seatIndex === activeSeatIndex ? actionDeadline : null}
+                  />
                 : <EmptySeat cardsFirst={pos.cardsFirst} />
               }
             </div>
@@ -345,6 +432,12 @@ export function TableView({
 
         {/* Player badge + stack */}
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+          <SeatPortrait
+            src={LOCAL_PORTRAIT}
+            size={56}
+            isActive={isMyTurnActive}
+            deadline={isMyTurnActive ? actionDeadline : null}
+          />
           <div style={{
             padding: '3px 8px',
             borderRadius: 4,

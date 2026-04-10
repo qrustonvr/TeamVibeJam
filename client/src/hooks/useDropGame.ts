@@ -619,14 +619,18 @@ export function useDropGame() {
 
   useEffect(() => {
     if (state.activeSeatIndex !== -1) return
+    // When all remaining players are all-in, deal streets with a dramatic pause
+    const activePlayers = state.seats.filter(s => !s.folded)
+    const allAllIn = activePlayers.length > 0 && activePlayers.every(s => s.allIn)
+    const streetDelay = allAllIn ? 2500 : 400
     switch (state.phase) {
-      case 'betting_1': schedulePhase(() => dispatch({ type: 'DEAL_FLOP' }), 400); break
-      case 'betting_2': schedulePhase(() => dispatch({ type: 'SET_PHASE', phase: 'drop' }), 400); break
-      case 'betting_3': schedulePhase(() => dispatch({ type: 'DEAL_TURN' }), 400); break
-      case 'betting_4': schedulePhase(() => dispatch({ type: 'DEAL_RIVER' }), 400); break
-      case 'betting_5': schedulePhase(() => dispatch({ type: 'RUN_SHOWDOWN' }), 400); break
+      case 'betting_1': schedulePhase(() => dispatch({ type: 'DEAL_FLOP' }), streetDelay); break
+      case 'betting_2': schedulePhase(() => dispatch({ type: 'SET_PHASE', phase: 'drop' }), streetDelay); break
+      case 'betting_3': schedulePhase(() => dispatch({ type: 'DEAL_TURN' }), streetDelay); break
+      case 'betting_4': schedulePhase(() => dispatch({ type: 'DEAL_RIVER' }), streetDelay); break
+      case 'betting_5': schedulePhase(() => dispatch({ type: 'RUN_SHOWDOWN' }), streetDelay); break
     }
-  }, [state.activeSeatIndex, state.phase, schedulePhase])
+  }, [state.activeSeatIndex, state.phase, state.seats, schedulePhase])
 
   // ─── Payout ───────────────────────────────────────────────────────────────
 
