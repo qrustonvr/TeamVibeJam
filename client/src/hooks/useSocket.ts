@@ -400,6 +400,10 @@ export function useSocket(): [MultiplayerState, SocketActions] {
     send({ type: 'DROP_CARD', cardIndex })
   }, [send])
 
+  const sendChat = useCallback((message: string) => {
+    send({ type: 'CHAT', message })
+  }, [send])
+
   const clearError = useCallback(() => {
     setMpState(s => ({ ...s, error: null }))
   }, [])
@@ -413,11 +417,12 @@ export function useSocket(): [MultiplayerState, SocketActions] {
       roomCode: null, seatIndex: null, sessionToken: null,
       error: null, log: [],
       handWinners: null, showdownPlayers: null, omens: [], myOmenMappings: [],
+      chatBubbles: {},
     })
   }, [])
 
   return [
     mpState,
-    { createRoom, joinRoom, startGame, sendAction, dropCard, clearError, disconnect },
+    { createRoom, joinRoom, startGame, sendAction, dropCard, sendChat, clearError, disconnect },
   ]
 }

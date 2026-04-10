@@ -255,8 +255,8 @@ export function DropGame() {
   if (mode === 'multiplayer') {
     const { gameState, connectionStatus, roomCode, seatIndex, error, log: mpLog,
             handWinners: mpHandWinners, showdownPlayers: mpShowdownPlayers,
-            omens: mpOmens, myOmenMappings } = mpState
-    const { createRoom, joinRoom, startGame, sendAction, dropCard, clearError, disconnect } = mpActions
+            omens: mpOmens, myOmenMappings, chatBubbles: mpChatBubbles } = mpState
+    const { createRoom, joinRoom, startGame, sendAction, dropCard, sendChat, clearError, disconnect } = mpActions
 
     if (!gameState || gameState.phase === 'lobby') {
       if (roomCode && gameState) {
@@ -381,6 +381,9 @@ export function DropGame() {
           showdownPlayers={mpShowdownPlayers}
           onAction={(action, amount) => sendAction(action, amount)}
           onDropCard={(idx) => dropCard(idx as 0 | 1 | 2)}
+          onNextHand={() => {}}
+          chatBubbles={mpChatBubbles}
+          onChat={(msg) => sendChat(msg)}
         />
         </div>
         <BrewSidebar open={brewOpen} onToggle={() => setBrewOpen(o => !o)} activeBrew={activeBrew} />

@@ -484,11 +484,12 @@ export class Room {
       .map(s => ({ seatIndex: s.seatIndex, cards: [...s.holeCards] }))
     this.broadcastAll({ type: 'HOLE_CARDS_REVEAL', reveals })
 
-    const winners = runShowdown(this.state)
+    const { winners, showdownPlayers } = runShowdown(this.state)
     this.broadcastAll({
       type: 'HAND_RESULT',
       winners,
       allSeats: this.state.seats.map(seatToPublic),
+      showdownPlayers,
     })
     this.logAndBroadcast(
       winners.map(w => `${this.state.seats[w.seatIndex].displayName} wins ◆${w.potWon} with ${w.handName}`).join(' | ')

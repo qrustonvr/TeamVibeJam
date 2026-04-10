@@ -32,20 +32,56 @@ export function Lobby({ onStartSolo, onCreateRoom, onJoinRoom, isConnecting = fa
 
   return (
     <div style={{
-      display: 'flex', flexDirection: 'column', alignItems: 'center',
-      gap: 20, padding: 32, maxWidth: 360, margin: '0 auto',
+      minHeight: '100vh',
+      width: '100%',
+      boxSizing: 'border-box',
+      position: 'relative',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: 24,
+      backgroundColor: '#0a0608',
+      backgroundImage: "url('/TeamVibeJam/assets/MainBg.png')",
+      backgroundSize: 'cover',
+      backgroundPosition: 'center',
+      backgroundRepeat: 'no-repeat',
     }}>
+      <div
+        aria-hidden
+        style={{
+          position: 'absolute',
+          inset: 0,
+          zIndex: 1,
+          background: 'linear-gradient(180deg, rgba(8,4,6,0.55) 0%, rgba(8,4,6,0.72) 100%)',
+          pointerEvents: 'none',
+        }}
+      />
+      <img
+        src="/TeamVibeJam/assets/MainFg.png"
+        alt=""
+        draggable={false}
+        style={{
+          position: 'absolute',
+          left: '50%',
+          top: '4%',
+          transform: 'translateX(-50%)',
+          width: 'min(950px, calc(92vw * 1.25), calc(100vw - 48px))',
+          maxHeight: '60vh',
+          height: 'auto',
+          objectFit: 'contain',
+          objectPosition: 'center top',
+          pointerEvents: 'none',
+          zIndex: 2,
+          userSelect: 'none',
+        }}
+      />
       <div style={{
-        fontFamily: 'var(--font-title)',
-        color: 'var(--gold)',
-        fontSize: 32,
-        letterSpacing: 4,
-        textShadow: '0 0 30px var(--gold)',
-        animation: 'glow 2.5s ease-in-out infinite',
-        textAlign: 'center',
+        position: 'relative',
+        zIndex: 3,
+        display: 'flex', flexDirection: 'column', alignItems: 'center',
+        gap: 20, padding: 32, maxWidth: 360, width: '100%',
+        marginTop: 50,
       }}>
-        THE OFFERING
-      </div>
       <div style={{
         fontFamily: 'var(--font-body)', color: 'rgba(255,255,255,0.5)',
         fontSize: 12, letterSpacing: 2, textAlign: 'center', textTransform: 'uppercase',
@@ -158,6 +194,7 @@ export function Lobby({ onStartSolo, onCreateRoom, onJoinRoom, isConnecting = fa
           <Button variant="ghost" fullWidth onClick={() => setMode('select')}>Back</Button>
         </div>
       )}
+      </div>
     </div>
   )
 }

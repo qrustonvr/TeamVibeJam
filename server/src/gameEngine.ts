@@ -1,5 +1,5 @@
 import { evaluatePlayerHand } from '@shared/handEvaluator.js'
-import type { Card, HandWinner, BrewResult } from '@shared/gameTypes.js'
+import type { Card, HandWinner, BrewResult, ShowdownPlayerInfo } from '@shared/gameTypes.js'
 import { ANTE_AMOUNT } from '@shared/constants.js'
 import type { ServerRoomState, ServerSeat, BettingAction, ValidationResult } from './types.js'
 import { makeDeck, shuffleDeck } from './types.js'
@@ -311,12 +311,12 @@ export function applySabotage(state: ServerRoomState): Array<{ seatIndex: number
 
 // ─── Showdown ─────────────────────────────────────────────────────────────────
 
-export function runShowdown(state: ServerRoomState): HandWinner[] {
+export function runShowdown(state: ServerRoomState): { winners: HandWinner[]; showdownPlayers: ShowdownPlayerInfo[] } {
   const remaining = activeSeats(state)
   if (remaining.length === 1) {
     const winner = remaining[0]
     winner.stack += state.pot
-    return [{
+    const handWinners: HandWinner[] = [{
       seatIndex: winner.seatIndex,
       handName: 'Last Player Standing',
       score: 0,
@@ -324,6 +324,17 @@ export function runShowdown(state: ServerRoomState): HandWinner[] {
       holeCards: [...winner.holeCards],
       bestHandCards: [],
     }]
+    const showdownPlayers: ShowdownPlayerInfo[] = state.seats.map(s => ({
+      seatIndex: s.seatIndex,
+      handName: s.folded ? 'Folded' : (s.seatIndex === winner.seatIndex ? 'Last Player Standing' : '—'),
+      score: 0,
+      holeCards: [...s.holeCards],
+      bestHandCards: [],
+      isWinner: s.seatIndex === winner.seatIndex,
+      potWon: s.seatIndex === winner.seatIndex ? state.pot : 0,
+      folded: s.folded,
+    }))
+    return { winners: handWinners, showdownPlayers }
   }
 
   const evaluated = remaining.map(seat => {
@@ -372,6 +383,24 @@ export function runShowdown(state: ServerRoomState): HandWinner[] {
     }
   })
 
+  const winnerSet = new Set(handWinners.map(w => w.seatIndex))
+  const potWonMap = new Map(handWinners.map(w => [w.seatIndex, w.potWon]))
+  const evalMap = new Map(evaluated.map(e => [e.seat.seatIndex, e.result]))
+
+  const showdownPlayers: ShowdownPlayerInfo[] = state.seats.map(s => {
+    const result = evalMap.get(s.seatIndex)
+    return {
+      seatIndex: s.seatIndex,
+      handName: s.folded ? 'Folded' : (result?.name ?? 'High Card'),
+      score: result?.score ?? 0,
+      holeCards: [...s.holeCards],
+      bestHandCards: result?.cards ?? [],
+      isWinner: winnerSet.has(s.seatIndex),
+      potWon: potWonMap.get(s.seatIndex) ?? 0,
+      folded: s.folded,
+    }
+  })
+
   // CHAIN LIGHTNING: swap chip stacks of highest and lowest hands
   if (state.activeBrew?.modifier === 'chain-lightning' && evaluated.length > 1) {
     const highest = evaluated[evaluated.length - 1].seat
@@ -383,7 +412,7 @@ export function runShowdown(state: ServerRoomState): HandWinner[] {
     }
   }
 
-  return handWinners
+  return { winners: handWinners, showdownPlayers }
 }
 
 // ─── Misc helpers ─────────────────────────────────────────────────────────────
