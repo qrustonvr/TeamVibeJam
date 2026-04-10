@@ -53,7 +53,7 @@ export function BettingControls({
       {isFireSale && (
         <div style={{
           textAlign: 'center', fontFamily: 'var(--font-body)', fontSize: 10,
-          letterSpacing: 2, color: '#fb923c', textTransform: 'uppercase',
+          letterSpacing: 2, color: '#a855f7', textTransform: 'uppercase',
         }}>
           {isYourTurn ? '🔥 FIRE SALE — Betting uncapped' : '🔥 UNCAPPED'}
         </div>

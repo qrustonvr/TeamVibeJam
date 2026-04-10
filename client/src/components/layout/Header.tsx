@@ -51,7 +51,7 @@ export function Header() {
             onMouseEnter={e => {
               const el = e.currentTarget
               el.style.background = 'var(--gold)'
-              el.style.color = '#0a1a0a'
+              el.style.color = '#1a0808'
             }}
             onMouseLeave={e => {
               const el = e.currentTarget

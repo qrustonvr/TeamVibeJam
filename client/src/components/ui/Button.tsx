@@ -9,13 +9,13 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 
 const variantClasses: Record<Variant, string> = {
   primary: [
-    'bg-gradient-to-b from-emerald-600 to-emerald-800',
-    'border border-emerald-500/60',
-    'text-white',
-    'hover:from-emerald-500 hover:to-emerald-700',
-    'active:from-emerald-800 active:to-emerald-900',
-    'shadow-[0_2px_12px_rgba(16,185,129,0.3)]',
-    'hover:shadow-[0_4px_20px_rgba(16,185,129,0.5)]',
+    'bg-gradient-to-b from-red-800 to-red-950',
+    'border border-red-600/50',
+    'text-[#e8ddd8]',
+    'hover:from-red-700 hover:to-red-900',
+    'active:from-red-950 active:to-black',
+    'shadow-[0_2px_12px_rgba(196,30,58,0.4)]',
+    'hover:shadow-[0_4px_20px_rgba(196,30,58,0.65)]',
   ].join(' '),
   danger: [
     'bg-gradient-to-b from-red-700 to-red-900',

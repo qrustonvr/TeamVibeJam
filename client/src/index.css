@@ -6,8 +6,9 @@
 :root {
   --felt-green:   #1a0808;
   --felt-dark:    #0d0404;
-  --gold:         #c41e3a;
-  --gold-dim:     #7a1020;
+  --gold:         #d4af37;   /* occult gold — high contrast on dark, readable */
+  --gold-dim:     #8a6820;   /* dimmed gold for secondary elements */
+  --crimson:      #c41e3a;   /* blood accent for glows, danger, highlights */
   --chip-red:     #8b0000;
   --chip-blue:    #1a0a2a;
   --chip-black:   #0a0808;
@@ -78,10 +79,10 @@ body {
   100% { transform: translateY(300%); }
 }
 
-/* ─── Crimson Glow Animation ─────────────────────────────────────── */
+/* ─── Gold Glow Animation ────────────────────────────────────────── */
 @keyframes glow {
-  0%   { text-shadow: 0 0 8px rgba(196, 30, 58, 0.4); }
-  100% { text-shadow: 0 0 24px #c41e3a, 0 0 48px rgba(196, 30, 58, 0.45); }
+  0%   { text-shadow: 0 0 8px rgba(212, 175, 55, 0.4); }
+  100% { text-shadow: 0 0 24px #d4af37, 0 0 48px rgba(212, 175, 55, 0.45); }
 }
 
 .animate-glow {
