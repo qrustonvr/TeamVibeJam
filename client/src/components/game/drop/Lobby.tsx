@@ -56,31 +56,31 @@ export function Lobby({ onStartSolo, onCreateRoom, onJoinRoom, isConnecting = fa
           pointerEvents: 'none',
         }}
       />
-      <img
-        src="/TeamVibeJam/assets/MainFg.png"
-        alt=""
-        draggable={false}
-        style={{
-          position: 'absolute',
-          left: '50%',
-          top: '4%',
-          transform: 'translateX(-50%)',
-          width: 'min(950px, calc(92vw * 1.25), calc(100vw - 48px))',
-          maxHeight: '60vh',
-          height: 'auto',
-          objectFit: 'contain',
-          objectPosition: 'center top',
-          pointerEvents: 'none',
-          zIndex: 2,
-          userSelect: 'none',
-        }}
-      />
       <div style={{
         position: 'relative',
-        zIndex: 3,
+        zIndex: 2,
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        width: '100%',
+        maxWidth: 640,
+      }}>
+        <img
+          src="/TeamVibeJam/assets/MainFg.png"
+          alt=""
+          draggable={false}
+          style={{
+            width: '100%',
+            height: 'auto',
+            objectFit: 'contain',
+            pointerEvents: 'none',
+            userSelect: 'none',
+            display: 'block',
+          }}
+        />
+      <div style={{
         display: 'flex', flexDirection: 'column', alignItems: 'center',
-        gap: 20, padding: 32, maxWidth: 360, width: '100%',
-        marginTop: 50,
+        gap: 20, padding: '0 32px 32px', maxWidth: 360, width: '100%',
       }}>
       <div style={{
         fontFamily: 'var(--font-body)', color: 'rgba(255,255,255,0.5)',
@@ -105,10 +105,12 @@ export function Lobby({ onStartSolo, onCreateRoom, onJoinRoom, isConnecting = fa
           <Button variant="primary" fullWidth onClick={() => setMode('solo')}>
             SOLO TABLE
           </Button>
-          <Button variant="ghost" fullWidth onClick={() => setMode('create')}>
+          <Button variant="ghost" fullWidth onClick={() => setMode('create')}
+            style={{ background: 'rgba(8,4,6,0.72)' }}>
             CREATE TABLE
           </Button>
-          <Button variant="ghost" fullWidth onClick={() => setMode('join')}>
+          <Button variant="ghost" fullWidth onClick={() => setMode('join')}
+            style={{ background: 'rgba(8,4,6,0.72)' }}>
             JOIN TABLE
           </Button>
         </div>
@@ -194,6 +196,7 @@ export function Lobby({ onStartSolo, onCreateRoom, onJoinRoom, isConnecting = fa
           <Button variant="ghost" fullWidth onClick={() => setMode('select')}>Back</Button>
         </div>
       )}
+      </div>
       </div>
     </div>
   )
