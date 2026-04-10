@@ -31,6 +31,7 @@ export function BettingControls({
   useEffect(() => {
     preload('check', '/TeamVibeJam/audio/check.wav')
     preload('fold', '/TeamVibeJam/audio/fold.wav')
+    preload('betraise', '/TeamVibeJam/audio/betraise.wav')
   }, [preload])
 
   const toCall = Math.max(0, currentBetLevel - myCurrentBet)
@@ -73,7 +74,7 @@ export function BettingControls({
           {canCheck ? (
             <Button variant="ghost" onClick={() => { play('check'); onAction('check') }}>Check</Button>
           ) : (
-            <Button variant="ghost" onClick={() => onAction('call')}>
+            <Button variant="ghost" onClick={() => { play('betraise'); onAction('call') }}>
               Call ◆{toCall}
             </Button>
           )}
@@ -84,7 +85,7 @@ export function BettingControls({
             </Button>
           )}
 
-          <Button variant="danger" onClick={() => onAction('all-in')}>
+          <Button variant="danger" onClick={() => { play('betraise'); onAction('all-in') }}>
             All-In ◆{myStack}
           </Button>
         </div>
@@ -121,7 +122,7 @@ export function BettingControls({
                 color: 'var(--gold)', fontFamily: 'var(--font-body)', fontSize: 13,
               }}
             />
-            <Button variant="primary" onClick={() => { onAction('raise', effectiveRaise); setShowRaise(false) }}>
+            <Button variant="primary" onClick={() => { play('betraise'); onAction('raise', effectiveRaise); setShowRaise(false) }}>
               Raise to ◆{effectiveRaise}
             </Button>
             <Button variant="ghost" onClick={() => setShowRaise(false)}>Cancel</Button>

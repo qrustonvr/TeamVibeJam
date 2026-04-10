@@ -1,5 +1,6 @@
 import type { Card } from '@shared/gameTypes'
 import { CardView } from './CardView'
+import { ChipStack } from './ChipStack'
 
 interface CommunityCardsProps {
   communityCards: Card[]
@@ -66,13 +67,18 @@ export function CommunityCards({ communityCards, dropZone, pot, turnIsHidden = f
         </div>
       </div>
 
-      {/* Pot */}
-      <div style={{
-        fontFamily: 'var(--font-display)', color: 'var(--gold)',
-        fontSize: 16, letterSpacing: 1,
-      }}>
-        POT: ◆ {pot}
-      </div>
+      {/* Pot chips */}
+      {pot > 0 && (
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+          <div style={{
+            fontSize: 9, letterSpacing: 2, color: 'var(--gold-dim)',
+            fontFamily: 'var(--font-body)', textTransform: 'uppercase',
+          }}>
+            pot
+          </div>
+          <ChipStack amount={pot} chipSize={34} maxTypes={4} showLabel />
+        </div>
+      )}
     </div>
   )
 }

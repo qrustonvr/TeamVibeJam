@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { DropPhase, PublicSeat, Card, HandWinner, BrewResult, BrewModifier, ShowdownPlayerInfo } from '@shared/gameTypes'
 import { useSound } from '@/hooks/useSound'
 import { CardView } from './CardView'
+import { ChipStack } from './ChipStack'
 import { CommunityCards } from './CommunityCards'
 import { BettingControls } from './BettingControls'
 import { DropSelect } from './DropSelect'
@@ -214,9 +215,7 @@ function SeatBlock({ seat, isActive, cardsFirst, showOmaha = false, portrait, de
           ◆ {seat.stack}
         </div>
         {seat.currentBet > 0 && (
-          <div style={{ fontSize: 10, color: '#a3e635', fontFamily: 'var(--font-body)' }}>
-            Bet: {seat.currentBet}
-          </div>
+          <ChipStack amount={seat.currentBet} chipSize={22} maxTypes={3} showLabel={false} />
         )}
         {seat.lastAction && (
           <div style={{
@@ -294,7 +293,26 @@ export function TableView({
   const { play, preload } = useSound()
   useEffect(() => { preload('your-turn', '/TeamVibeJam/audio/your-turn.wav') }, [preload])
   useEffect(() => { preload('drop-card', '/TeamVibeJam/audio/drop-card.wav') }, [preload])
+  useEffect(() => { preload('betraise', '/TeamVibeJam/audio/betraise.wav') }, [preload])
+  useEffect(() => { preload('check', '/TeamVibeJam/audio/check.wav') }, [preload])
+  useEffect(() => { preload('fold', '/TeamVibeJam/audio/fold.wav') }, [preload])
   useEffect(() => { if (isYourTurn || isYourDropTurn) play('your-turn') }, [isYourTurn, isYourDropTurn, play])
+
+  // Play sounds when opponents act
+  const prevLastActions = useRef<Record<number, string | null>>({})
+  useEffect(() => {
+    for (const seat of seats) {
+      if (seat.seatIndex === yourSeatIndex) continue
+      const prev = prevLastActions.current[seat.seatIndex]
+      const curr = seat.lastAction ?? null
+      if (curr !== null && curr !== prev) {
+        if (curr === 'fold') play('fold')
+        else if (curr === 'check') play('check')
+        else play('betraise')
+      }
+      prevLastActions.current[seat.seatIndex] = curr
+    }
+  }, [seats, yourSeatIndex, play])
 
   const handleDropCard = (cardIndex: number) => { play('drop-card'); onDropCard(cardIndex) }
 
@@ -453,10 +471,12 @@ export function TableView({
             ⭐ You
           </div>
           {mySeat && (
-            <div style={{ display: 'flex', gap: 8, fontFamily: 'var(--font-body)', fontSize: 11 }}>
-              <span style={{ color: 'var(--gold-dim)' }}>◆ {mySeat.stack}</span>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+              <div style={{ fontFamily: 'var(--font-body)', fontSize: 11, color: 'var(--gold-dim)' }}>
+                ◆ {mySeat.stack}
+              </div>
               {mySeat.currentBet > 0 && (
-                <span style={{ color: '#a3e635' }}>Bet: {mySeat.currentBet}</span>
+                <ChipStack amount={mySeat.currentBet} chipSize={24} maxTypes={3} showLabel={false} />
               )}
             </div>
           )}
