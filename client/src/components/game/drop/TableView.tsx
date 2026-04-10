@@ -378,18 +378,20 @@ export function TableView({
         <div style={{ display: 'flex', justifyContent: 'center' }}>
           {(() => {
             const hasDropped = mySeat?.hasDropped ?? false
-            // Flat card slot left-edges (px) inside a 480×270 container
-            // Slot x-centres at 35%, 50%, 65% → left = centre − 26 (half of 52px card width)
+            // Container: 640×360 (16:9 — matches PlayerTable.png aspect ratio)
+            // Flat card slot x-centres at 28%, 50%, 72% of 640 = 179, 320, 461
+            // Card width 52 → left = centre − 26
+            // Flat slot y-centre at 68% of 360 = 245 → card top = 245 − 38 (half of 76)
+            const W = 640, H = 360
             const CARD_W = 52, CARD_H = 76
-            const allSlotX = [142, 214, 286] as const
+            const slotCentresX = [179, 320, 461]
+            const slotY = Math.round(H * 0.68) - Math.round(CARD_H / 2)   // 207
             const slotX: number[] =
-              yourCards.length <= 1 ? [214] :
-              yourCards.length === 2 ? [142, 286] :
-              [142, 214, 286]
-            // Slot y-centre at 65% of 270px = 175px → top = 175 − 38 (half of 76px)
-            const cardTop = 137
+              yourCards.length <= 1 ? [slotCentresX[1] - 26] :
+              yourCards.length === 2 ? [slotCentresX[0] - 26, slotCentresX[2] - 26] :
+              slotCentresX.map(cx => cx - 26)
             return (
-              <div style={{ position: 'relative', width: 480, height: 270, flexShrink: 0, maxWidth: '100%' }}>
+              <div style={{ position: 'relative', width: W, height: H, flexShrink: 0, maxWidth: '100%' }}>
                 <img
                   src="/TeamVibeJam/assets/PlayerTable.png"
                   draggable={false}
@@ -405,8 +407,8 @@ export function TableView({
                     key={i}
                     style={{
                       position: 'absolute',
-                      left: slotX[i] ?? allSlotX[1],
-                      top: cardTop,
+                      left: slotX[i] ?? slotCentresX[1] - 26,
+                      top: slotY,
                       width: CARD_W,
                       height: CARD_H,
                       cursor: isDropPhase && !hasDropped && isYourDropTurn ? 'pointer' : 'default',
@@ -421,7 +423,7 @@ export function TableView({
                 ))}
                 {isDropPhase && !hasDropped && (
                   <div style={{
-                    position: 'absolute', bottom: 12, left: 0, right: 0, textAlign: 'center',
+                    position: 'absolute', bottom: 16, left: 0, right: 0, textAlign: 'center',
                     fontSize: 10, color: 'var(--gold)', fontFamily: 'var(--font-body)',
                     letterSpacing: 1, textTransform: 'uppercase',
                     animation: 'glow 2.5s ease-in-out infinite',
