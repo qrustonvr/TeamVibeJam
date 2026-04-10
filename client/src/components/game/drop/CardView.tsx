@@ -11,16 +11,17 @@ interface CardViewProps {
 }
 
 const SUIT_COLORS: Record<string, string> = {
-  '♠': '#1a1a2e',
-  '♣': '#1a1a2e',
-  '♥': '#c0392b',
-  '♦': '#c0392b',
+  '♠': '#1a1020',
+  '♣': '#1a1020',
+  '♥': '#8b0000',
+  '♦': '#8b0000',
 }
 
 export function CardView({ card, faceDown = false, selected = false, onClick, small = false, dimmed = false, glowing = false }: CardViewProps) {
   const w = small ? 36 : 52
   const h = small ? 52 : 76
-  const fontSize = small ? 11 : 15
+  const rankSize = small ? 14 : 22
+  const suitSize = small ? 12 : 18
 
   const baseStyle: React.CSSProperties = {
     width: w,
@@ -66,14 +67,25 @@ export function CardView({ card, faceDown = false, selected = false, onClick, sm
     <div
       style={{
         ...baseStyle,
-        background: 'linear-gradient(180deg, #f8f4e8 0%, #ece8d8 100%)',
+        background: 'linear-gradient(160deg, #fff8e0 0%, #ffe08a 35%, #ffb830 65%, #ff7a00 100%)',
+        boxShadow: glowing
+          ? '0 0 12px var(--gold), 0 0 24px var(--gold-dim)'
+          : selected
+            ? '0 8px 20px rgba(212,175,55,0.5)'
+            : '0 2px 8px rgba(0,0,0,0.6), inset 0 0 12px rgba(255,160,0,0.15)',
       }}
       onClick={onClick}
     >
-      <div style={{ color: suitColor, fontFamily: 'var(--font-body)', fontWeight: 700 }}>
-        <div style={{ fontSize, lineHeight: 1, textAlign: 'center' }}>{rankStr}</div>
-        <div style={{ fontSize: fontSize * 0.9, textAlign: 'center' }}>{suitStr}</div>
+      {/* Center large rank + suit */}
+      <div style={{
+        color: suitColor, fontFamily: 'var(--font-display)', fontWeight: 700,
+        display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0,
+        textShadow: '0 1px 4px rgba(255,255,255,0.6)',
+      }}>
+        <div style={{ fontSize: rankSize * 2, lineHeight: 1, height: rankSize * 2.2, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{rankStr}</div>
+        <div style={{ fontSize: suitSize * 1.6, lineHeight: 1, height: suitSize * 1.8, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{suitStr}</div>
       </div>
+
     </div>
   )
 }

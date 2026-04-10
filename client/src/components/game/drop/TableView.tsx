@@ -625,12 +625,18 @@ export function TableView({
             yourCards.length === 2 ? [40, 60] :
             [40, 50, 60]
           const CARD_W = 52, CARD_H = 76
-          return yourCards.map((card, i) => (
+          const n = yourCards.length
+          return yourCards.map((card, i) => {
+            let leftOffsetPx = 0
+            if (i === 0) leftOffsetPx += 15
+            if (n === 3 && i === 1) leftOffsetPx += 6
+            if (n === 3 && i === 2) leftOffsetPx -= 2
+            return (
             <div
               key={i}
               style={{
                 position: 'absolute',
-                left: `calc(${slotCentresX[i]}% - ${CARD_W / 2}px)`,
+                left: `calc(${slotCentresX[i]}% - ${CARD_W / 2}px + ${leftOffsetPx}px)`,
                 top: 'calc(82% - 38px)',
                 width: CARD_W, height: CARD_H,
                 transform: 'perspective(500px) rotateX(-28deg)',
@@ -645,7 +651,8 @@ export function TableView({
                 selected={false}
               />
             </div>
-          ))
+            )
+          })
         })()}
 
         {/* BrewReveal — full table overlay, must be above all card layers */}
