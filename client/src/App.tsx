@@ -9,7 +9,7 @@ function App() {
     <GameProvider>
       <div
         className="flex flex-col h-full"
-        style={{ background: 'linear-gradient(160deg, #080f08 0%, #050c05 100%)' }}
+        style={{ background: 'transparent' }}
       >
         <Header />
         <GameTable>
