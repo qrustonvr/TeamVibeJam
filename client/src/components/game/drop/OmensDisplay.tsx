@@ -1,6 +1,19 @@
 import type { BrewModifier } from '@shared/gameTypes'
 import { BREW_DEFS, BREW_MODIFIER_COLORS } from '@/utils/brewResolver'
 
+const OMEN_IMAGES: Record<BrewModifier, string> = {
+  'nuke':           '/TeamVibeJam/assets/Omen__0000_TheAshenDecree.png',
+  'bleeding-pot':   '/TeamVibeJam/assets/Omen__0001_BloodBounty.png',
+  'royal-tax':      '/TeamVibeJam/assets/Omen__0002_TheTithe.png',
+  'sabotage':       '/TeamVibeJam/assets/Omen__0003_Unveiled.png',
+  'blackout':       '/TeamVibeJam/assets/Omen__0004_TheShroud.png',
+  'fire-sale':      '/TeamVibeJam/assets/Omen__0005_TheInversion.png',
+  'grave-dig':      '/TeamVibeJam/assets/Omen__0006_FromthePit.png',
+  'underdog':       '/TeamVibeJam/assets/Omen__0007_TheChosenAfflicted.png',
+  'jackpot':        '/TeamVibeJam/assets/Omen__0008_TributeDue.png',
+  'chain-lightning':'/TeamVibeJam/assets/Omen__0009_Unchained.png',
+}
+
 interface OmensDisplayProps {
   omens: BrewModifier[]
   /** per-omen vote counts — shown during brew_reveal */
@@ -26,7 +39,7 @@ export function OmensDisplay({ omens, omenVotes, winningOmen }: OmensDisplayProp
         color: 'rgba(255,255,255,0.3)',
         textTransform: 'uppercase',
       }}>
-        This Hand's Omens
+        The Rite of Omens
       </div>
       <div style={{ display: 'flex', gap: 6 }}>
         {omens.map(omen => {
@@ -51,7 +64,11 @@ export function OmensDisplay({ omens, omenVotes, winningOmen }: OmensDisplayProp
                 minWidth: 52,
               }}
             >
-              <span style={{ fontSize: 14 }}>{def.icon}</span>
+              <img
+                src={OMEN_IMAGES[omen]}
+                alt={def.name}
+                style={{ width: 40, height: 40, objectFit: 'contain', opacity: isWinner ? 1 : 0.7 }}
+              />
               <span style={{
                 fontFamily: 'var(--font-body)',
                 fontSize: 8,

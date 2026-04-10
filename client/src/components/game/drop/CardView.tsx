@@ -50,15 +50,11 @@ export function CardView({ card, faceDown = false, selected = false, onClick, sm
     return (
       <div style={{
         ...baseStyle,
-        background: 'linear-gradient(135deg, #1a3a5c 0%, #0d2040 100%)',
-      }}>
-        <div style={{
-          width: '80%', height: '80%',
-          border: '1px solid rgba(212,175,55,0.3)',
-          borderRadius: 3,
-          background: 'repeating-linear-gradient(45deg, transparent, transparent 3px, rgba(212,175,55,0.05) 3px, rgba(212,175,55,0.05) 6px)',
-        }} />
-      </div>
+        backgroundImage: "url('/TeamVibeJam/assets/Cardback.png')",
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundColor: '#1a0808',
+      }} />
     )
   }
 

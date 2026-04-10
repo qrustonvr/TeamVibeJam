@@ -1,6 +1,19 @@
 import { useEffect, useState } from 'react'
 import type { BrewResult, Card, BrewModifier } from '@shared/gameTypes'
 import { BREW_MODIFIER_COLORS } from '@/utils/brewResolver'
+
+const FIEND_IMAGES: Record<BrewModifier, string> = {
+  'nuke':           '/TeamVibeJam/assets/Fiend_TheAshenDecree.png',
+  'chain-lightning':'/TeamVibeJam/assets/Fiend_Unchained.png',
+  'royal-tax':      '/TeamVibeJam/assets/Fiend_TheTithe.png',
+  'underdog':       '/TeamVibeJam/assets/Fiend_TheChosenAfflicted.png',
+  'bleeding-pot':   '/TeamVibeJam/assets/Fiend_BloodBounty.png',
+  'grave-dig':      '/TeamVibeJam/assets/Fiend_FromThePit.png',
+  'jackpot':        '/TeamVibeJam/assets/Fiend_TributeDue.png',
+  'sabotage':       '/TeamVibeJam/assets/Fiend_Unveiled.png',
+  'fire-sale':      '/TeamVibeJam/assets/Fiend_Inversion.png',
+  'blackout':       '/TeamVibeJam/assets/Fiend_TheShroud.png',
+}
 import { CardView } from './CardView'
 import { OmensDisplay } from './OmensDisplay'
 
@@ -58,7 +71,7 @@ export function BrewReveal({ brew, dropZone, omens, omenVotes }: BrewRevealProps
             textTransform: 'uppercase',
             animation: 'glow 1s ease-in-out infinite',
           }}>
-            Counting Votes…
+            The Rite Unfolds…
           </div>
         </>
       )}
@@ -76,14 +89,22 @@ export function BrewReveal({ brew, dropZone, omens, omenVotes }: BrewRevealProps
             }
           `}</style>
 
-          <div style={{ fontSize: 52 }}>{brew.icon}</div>
+          <img
+            src={FIEND_IMAGES[brew.modifier]}
+            alt={brew.name}
+            style={{
+              width: 120, height: 120, objectFit: 'contain',
+              filter: `drop-shadow(0 0 20px ${color})`,
+            }}
+          />
 
           <div style={{
-            fontFamily: 'var(--font-display)',
+            fontFamily: 'var(--font-title)',
             color,
-            fontSize: 28,
+            fontSize: 22,
             letterSpacing: 4,
             textShadow: `0 0 30px ${color}`,
+            textAlign: 'center',
           }}>
             {brew.name}
           </div>

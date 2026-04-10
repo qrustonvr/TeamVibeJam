@@ -36,7 +36,7 @@ export function Lobby({ onStartSolo, onCreateRoom, onJoinRoom, isConnecting = fa
       gap: 20, padding: 32, maxWidth: 360, margin: '0 auto',
     }}>
       <div style={{
-        fontFamily: 'var(--font-display)',
+        fontFamily: 'var(--font-title)',
         color: 'var(--gold)',
         fontSize: 32,
         letterSpacing: 4,
@@ -50,7 +50,7 @@ export function Lobby({ onStartSolo, onCreateRoom, onJoinRoom, isConnecting = fa
         fontFamily: 'var(--font-body)', color: 'rgba(255,255,255,0.5)',
         fontSize: 12, letterSpacing: 2, textAlign: 'center', textTransform: 'uppercase',
       }}>
-        A Poker Variant
+        Suffer. Sacrifice. Survive.
       </div>
 
       {error && (

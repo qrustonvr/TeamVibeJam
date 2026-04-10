@@ -66,9 +66,9 @@ export function BrewSidebar({ open, onToggle, activeBrew }: BrewSidebarProps) {
           textTransform: 'uppercase' as const,
           transition: 'left 0.3s ease',
         }}
-        title={open ? 'Close Brew Reference' : 'Open Brew Reference'}
+        title={open ? 'Close Rite Reference' : 'Open Rite Reference'}
       >
-        {open ? '✕' : '⚗'}
+        {open ? '✕' : '☠'}
       </button>
 
       {/* Panel */}
@@ -97,14 +97,14 @@ export function BrewSidebar({ open, onToggle, activeBrew }: BrewSidebarProps) {
             letterSpacing: 2,
             textAlign: 'center',
           }}>
-            ⚗ THE BREW
+            ☠ THE RITE
           </div>
 
           <div style={{
             fontFamily: 'var(--font-body)', fontSize: 10,
             color: 'rgba(255,255,255,0.4)', lineHeight: 1.5, textAlign: 'center',
           }}>
-            Dropped cards form an Omen. The winning Omen triggers a modifier.
+            Dropped cards invoke an Omen. The winning Omen calls forth a Fiend.
           </div>
 
           {CATEGORIES.map(cat => (

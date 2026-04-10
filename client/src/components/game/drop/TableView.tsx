@@ -227,9 +227,9 @@ export function TableView({
       flexDirection: 'column',
       gap: 6,
       position: 'relative',
-      outline: isFireSale ? '2px solid #fb923c' : 'none',
+      outline: isFireSale ? '2px solid #9333ea' : 'none',
       outlineOffset: -2,
-      boxShadow: isFireSale ? 'inset 0 0 30px rgba(251,146,60,0.15)' : 'none',
+      boxShadow: isFireSale ? 'inset 0 0 30px rgba(147,51,234,0.2)' : 'none',
       borderRadius: 12,
     }}>
 
@@ -241,13 +241,13 @@ export function TableView({
           position: 'absolute',
           left: '13%', right: '13%', top: '12%', bottom: '12%',
           borderRadius: '50%',
-          background: 'radial-gradient(ellipse 80% 60% at 50% 40%, #1e6b1e 0%, #115011 45%, #082808 100%)',
-          border: '10px solid #5a3200',
+          background: 'radial-gradient(ellipse 80% 60% at 50% 40%, #2a0808 0%, #160404 45%, #080202 100%)',
+          border: '10px solid #3a0a0a',
           boxShadow: [
-            '0 0 0 2px #9a7228',
-            '0 0 0 4px #3a1e00',
-            'inset 0 0 80px rgba(0,0,0,0.45)',
-            '0 12px 48px rgba(0,0,0,0.7)',
+            '0 0 0 2px #7a1a1a',
+            '0 0 0 4px #1a0404',
+            'inset 0 0 80px rgba(0,0,0,0.6)',
+            '0 12px 48px rgba(0,0,0,0.8)',
           ].join(', '),
           overflow: 'hidden',
         }}>

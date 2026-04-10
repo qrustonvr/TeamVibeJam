@@ -36,16 +36,16 @@ function getSuitMajority(cards: Card[]): string | null {
 }
 
 const BREW_DEFS: Record<BrewModifier, { name: string; description: string; icon: string }> = {
-  'nuke':          { name: 'NUKE',          icon: '☢️',  description: 'The board has been wiped and redealt!' },
-  'chain-lightning':{ name: 'CHAIN LIGHTNING',icon: '⚡', description: 'Highest and lowest hands swap stacks at showdown!' },
-  'royal-tax':     { name: 'ROYAL TAX',     icon: '👑',  description: "Next hand's ante is doubled!" },
-  'underdog':      { name: 'UNDERDOG',       icon: '🐕',  description: 'The weakest hand draws a bonus card!' },
-  'bleeding-pot':  { name: 'BLEEDING POT',  icon: '💔',  description: 'Pot doubled! But winner splits 50% with runner-up.' },
-  'grave-dig':     { name: 'GRAVE DIG',     icon: '⚰️',  description: 'Everyone draws a card from the grave!' },
-  'jackpot':       { name: 'JACKPOT',       icon: '💎',  description: 'The house adds a bonus pot!' },
-  'sabotage':      { name: 'SABOTAGE',      icon: '🗡️',  description: "Everyone's strongest card is exposed!" },
-  'fire-sale':     { name: 'FIRE SALE',     icon: '🔥',  description: 'All betting limits removed for this hand!' },
-  'blackout':      { name: 'BLACKOUT',      icon: '🌑',  description: 'The turn card is hidden. Good luck.' },
+  'nuke':           { name: 'THE ASHEN DECREE',    icon: '🔥', description: 'The board is scorched clean and redealt from the ashes.' },
+  'chain-lightning':{ name: 'UNCHAINED',            icon: '⛓️', description: 'The strongest and weakest are bound. Their stacks are exchanged at showdown.' },
+  'royal-tax':      { name: 'THE TITHE',            icon: '👑', description: "Hell collects its due. The next hand's ante is doubled." },
+  'underdog':       { name: 'THE CHOSEN AFFLICTED', icon: '🩸', description: 'The weakest soul receives dark favour — they draw a bonus card from shadow.' },
+  'bleeding-pot':   { name: 'BLOOD BOUNTY',         icon: '💔', description: 'The pot swells with crimson debt. The winner tithes half their spoils to the runner-up.' },
+  'grave-dig':      { name: 'FROM THE PIT',         icon: '⚰️', description: 'The dead do not rest. Every soul draws a card from the grave.' },
+  'jackpot':        { name: 'TRIBUTE DUE',          icon: '💰', description: 'A dark offering is demanded — and the house fills the pot as its answer.' },
+  'sabotage':       { name: 'UNVEILED',             icon: '👁️', description: "All masks are stripped away. Every player's strongest card is laid bare." },
+  'fire-sale':      { name: 'THE INVERSION',        icon: '🌀', description: 'All limits shatter. Raise without bounds for this hand.' },
+  'blackout':       { name: 'THE SHROUD',           icon: '🌑', description: 'The fourth card drowns in darkness. The turn is hidden from all eyes.' },
 }
 
 function makeResult(modifier: BrewModifier): BrewResult {
@@ -83,16 +83,16 @@ export function resolveBrews(droppedCards: Card[]): BrewResult {
 }
 
 export const BREW_MODIFIER_COLORS: Record<BrewModifier, string> = {
-  'nuke':           '#f87171',  // red
-  'chain-lightning':'#facc15',  // yellow
-  'royal-tax':      '#fbbf24',  // gold
-  'underdog':       '#a3e635',  // lime
-  'bleeding-pot':   '#f472b6',  // pink
-  'grave-dig':      '#818cf8',  // indigo
-  'jackpot':        '#60a5fa',  // blue
-  'sabotage':       '#c084fc',  // purple
-  'fire-sale':      '#fb923c',  // orange
-  'blackout':       '#6b7280',  // gray
+  'nuke':           '#ef4444',  // crimson-red
+  'chain-lightning':'#a78bfa',  // violet
+  'royal-tax':      '#f59e0b',  // amber
+  'underdog':       '#dc2626',  // deep red
+  'bleeding-pot':   '#be123c',  // rose-crimson
+  'grave-dig':      '#6366f1',  // indigo
+  'jackpot':        '#b45309',  // dark gold
+  'sabotage':       '#7c3aed',  // purple
+  'fire-sale':      '#9333ea',  // dark violet
+  'blackout':       '#374151',  // dark gray
 }
 
 export { BREW_DEFS }

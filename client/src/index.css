@@ -2,16 +2,17 @@
 @tailwind components;
 @tailwind utilities;
 
-/* ─── Casino Theme Variables ─────────────────────────────────────── */
+/* ─── Theme Variables ────────────────────────────────────────────── */
 :root {
-  --felt-green:   #1a4a1a;
-  --felt-dark:    #0d2b0d;
-  --gold:         #d4af37;
-  --gold-dim:     #8a7020;
-  --chip-red:     #c0392b;
-  --chip-blue:    #2980b9;
-  --chip-black:   #1a1a1a;
-  --chip-white:   #f0ece0;
+  --felt-green:   #1a0808;
+  --felt-dark:    #0d0404;
+  --gold:         #c41e3a;
+  --gold-dim:     #7a1020;
+  --chip-red:     #8b0000;
+  --chip-blue:    #1a0a2a;
+  --chip-black:   #0a0808;
+  --chip-white:   #e8ddd8;
+  --font-title:   "Cinzel Decorative", serif;
   --font-display: "Playfair Display", serif;
   --font-body:    "JetBrains Mono", monospace;
 }
@@ -29,8 +30,12 @@ html, body, #root {
 }
 
 body {
-  background: #080f08;
-  color: #e8e4d8;
+  background-color: #050202;
+  background-image: url('/TeamVibeJam/assets/Background.png');
+  background-size: cover;
+  background-position: center;
+  background-attachment: fixed;
+  color: #e8ddd8;
   font-family: var(--font-body);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -61,7 +66,7 @@ body {
   background: linear-gradient(
     to bottom,
     transparent 0%,
-    rgba(255, 255, 255, 0.015) 50%,
+    rgba(196, 30, 58, 0.02) 50%,
     transparent 100%
   );
   animation: scanline 10s linear infinite;
@@ -73,10 +78,10 @@ body {
   100% { transform: translateY(300%); }
 }
 
-/* ─── Gold Glow Animation ────────────────────────────────────────── */
+/* ─── Crimson Glow Animation ─────────────────────────────────────── */
 @keyframes glow {
-  0%   { text-shadow: 0 0 8px rgba(212, 175, 55, 0.3); }
-  100% { text-shadow: 0 0 24px var(--gold), 0 0 48px rgba(212, 175, 55, 0.35); }
+  0%   { text-shadow: 0 0 8px rgba(196, 30, 58, 0.4); }
+  100% { text-shadow: 0 0 24px #c41e3a, 0 0 48px rgba(196, 30, 58, 0.45); }
 }
 
 .animate-glow {
@@ -84,5 +89,6 @@ body {
 }
 
 /* ─── Font Utilities ─────────────────────────────────────────────── */
+.font-title   { font-family: var(--font-title); }
 .font-display { font-family: var(--font-display); }
 .font-body    { font-family: var(--font-body); }
