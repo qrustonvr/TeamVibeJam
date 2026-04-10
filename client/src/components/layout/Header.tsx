@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { useGame } from '@/context/GameContext'
 import { useBGM } from '@/context/BGMContext'
+import { useSFX } from '@/context/SFXContext'
 import { AnimatedNumber } from '@/components/ui/AnimatedNumber'
 import { RulesModal } from '@/components/ui/RulesModal'
 import { GAME_CONFIG } from '@/utils/constants'
@@ -8,6 +9,7 @@ import { GAME_CONFIG } from '@/utils/constants'
 export function Header() {
   const { state } = useGame()
   const { volume, setVolume, muted, toggleMute } = useBGM()
+  const { sfxVolume, setSfxVolume, sfxMuted, toggleSfxMute } = useSFX()
   const [rulesOpen, setRulesOpen] = useState(false)
   const [volumeOpen, setVolumeOpen] = useState(false)
   const volumePanelRef = useRef<HTMLDivElement>(null)
@@ -145,16 +147,50 @@ export function Header() {
                     min={0} max={1} step={0.01}
                     value={muted ? 0 : volume}
                     onChange={e => setVolume(parseFloat(e.target.value))}
-                    style={{
-                      flex: 1, accentColor: 'var(--gold)',
-                      cursor: 'pointer',
-                    }}
+                    style={{ flex: 1, accentColor: 'var(--gold)', cursor: 'pointer' }}
                   />
                   <span style={{
                     fontFamily: 'var(--font-body)', fontSize: 10,
                     color: 'var(--gold-dim)', minWidth: 28, textAlign: 'right',
                   }}>
                     {Math.round((muted ? 0 : volume) * 100)}%
+                  </span>
+                </div>
+
+                {/* Divider */}
+                <div style={{ height: 1, background: 'rgba(212,175,55,0.15)', margin: '2px 0' }} />
+
+                <div style={{
+                  fontFamily: 'var(--font-body)', fontSize: 9,
+                  letterSpacing: 2, color: 'var(--gold-dim)',
+                  textTransform: 'uppercase',
+                }}>
+                  SFX Volume
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <button
+                    onClick={toggleSfxMute}
+                    style={{
+                      background: 'none', border: 'none',
+                      color: 'var(--gold)', cursor: 'pointer',
+                      fontSize: 16, padding: 0, lineHeight: 1, flexShrink: 0,
+                    }}
+                  >
+                    {sfxMuted || sfxVolume === 0 ? '🔇' : '🔊'}
+                  </button>
+                  <input
+                    type="range"
+                    min={0} max={1} step={0.01}
+                    value={sfxMuted ? 0 : sfxVolume}
+                    onChange={e => setSfxVolume(parseFloat(e.target.value))}
+                    style={{ flex: 1, accentColor: 'var(--gold)', cursor: 'pointer' }}
+                  />
+                  <span style={{
+                    fontFamily: 'var(--font-body)', fontSize: 10,
+                    color: 'var(--gold-dim)', minWidth: 28, textAlign: 'right',
+                  }}>
+                    {Math.round((sfxMuted ? 0 : sfxVolume) * 100)}%
                   </span>
                 </div>
               </div>

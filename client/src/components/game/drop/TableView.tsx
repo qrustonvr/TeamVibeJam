@@ -1,6 +1,7 @@
 import { Fragment, useEffect, useRef, useState } from 'react'
 import type { DropPhase, PublicSeat, Card, HandWinner, BrewResult, BrewModifier, ShowdownPlayerInfo } from '@shared/gameTypes'
 import { useSound } from '@/hooks/useSound'
+import { useSFX } from '@/context/SFXContext'
 import { CardView } from './CardView'
 import { ChipStack } from './ChipStack'
 import { CommunityCards } from './CommunityCards'
@@ -323,15 +324,86 @@ export function TableView({
   const isFireSale = activeBrew?.modifier === 'fire-sale'
   const isMyTurnActive = mySeat?.seatIndex === activeSeatIndex
 
-  const { play, preload } = useSound()
-  useEffect(() => { preload('your-turn', '/TeamVibeJam/audio/your-turn.wav') }, [preload])
-  useEffect(() => { preload('drop-card', '/TeamVibeJam/audio/drop-card.wav') }, [preload])
-  useEffect(() => { preload('betraise', '/TeamVibeJam/audio/betraise.wav') }, [preload])
-  useEffect(() => { preload('check', '/TeamVibeJam/audio/check.wav') }, [preload])
-  useEffect(() => { preload('fold', '/TeamVibeJam/audio/fold.wav') }, [preload])
-  useEffect(() => { if (isYourTurn || isYourDropTurn) play('your-turn') }, [isYourTurn, isYourDropTurn, play])
+  const { play, preload, setVolume } = useSound()
+  const { sfxVolume, sfxMuted } = useSFX()
 
-  // Auto check/fold when turn timer expires
+  // Sync SFX volume/mute into the Web Audio gain node
+  useEffect(() => {
+    setVolume(sfxMuted ? 0 : sfxVolume * 0.1)
+  }, [sfxVolume, sfxMuted, setVolume])
+
+  // ── Preload all SFX ────────────────────────────────────────────────────────
+  useEffect(() => {
+    preload('your-turn',    '/TeamVibeJam/audio/your-turn.mp3')
+    preload('others-turn-1','/TeamVibeJam/audio/others-turn-1.mp3')
+    preload('others-turn-2','/TeamVibeJam/audio/others-turn-2.mp3')
+    preload('fold',         '/TeamVibeJam/audio/fold.mp3')
+    preload('check',        '/TeamVibeJam/audio/check.mp3')
+    preload('all-in',       '/TeamVibeJam/audio/all-in.mp3')
+    preload('betraise',     '/TeamVibeJam/audio/betraise.wav')
+    preload('drop',         '/TeamVibeJam/audio/drop.wav')
+    preload('fiend-spawn',  '/TeamVibeJam/audio/fiend-spawn.mp3')
+    preload('win',          '/TeamVibeJam/audio/win.mp3')
+    preload('lose',         '/TeamVibeJam/audio/lose.mp3')
+  }, [preload])
+
+  // ── Your turn ──────────────────────────────────────────────────────────────
+  useEffect(() => {
+    if (isYourTurn || isYourDropTurn) play('your-turn')
+  }, [isYourTurn, isYourDropTurn, play])
+
+  // ── Opponent turn notification — only fires during betting phases ───────────
+  const othersTurnFlipRef = useRef(false)
+  const prevActiveSeatRef = useRef<number>(-1)
+  useEffect(() => {
+    if (!isBettingPhase) return
+    if (activeSeatIndex === prevActiveSeatRef.current) return
+    prevActiveSeatRef.current = activeSeatIndex
+    if (activeSeatIndex !== yourSeatIndex && activeSeatIndex >= 0) {
+      othersTurnFlipRef.current = !othersTurnFlipRef.current
+      play(othersTurnFlipRef.current ? 'others-turn-1' : 'others-turn-2')
+    }
+  }, [activeSeatIndex, yourSeatIndex, isBettingPhase, play])
+
+  // ── Betting action sounds — all seats including player ─────────────────────
+  const prevLastActions = useRef<Record<number, string | null>>({})
+  useEffect(() => {
+    for (const seat of seats) {
+      const prev = prevLastActions.current[seat.seatIndex] ?? null
+      const curr = seat.lastAction ?? null
+      if (curr !== null && curr !== prev) {
+        if (curr === 'fold')         play('fold')
+        else if (curr === 'check')   play('check')
+        else if (curr === 'all-in')  play('all-in')
+        else                         play('betraise')
+      }
+      prevLastActions.current[seat.seatIndex] = curr
+    }
+  }, [seats, play])
+
+  // ── Fiend spawn (brew revealed) ────────────────────────────────────────────
+  const prevBrewRef = useRef<string | null>(null)
+  useEffect(() => {
+    const mod = activeBrew?.modifier ?? null
+    if (mod && mod !== prevBrewRef.current) play('fiend-spawn')
+    prevBrewRef.current = mod
+  }, [activeBrew, play])
+
+  // ── Win / Lose — fires once when phase transitions INTO payout ────────────
+  // Using phase as the trigger avoids reference-equality issues with the
+  // handWinners array being reconstructed each render in DropGame.
+  const prevPhaseForWinRef = useRef<string>('')
+  useEffect(() => {
+    if (phase === prevPhaseForWinRef.current) return
+    const prev = prevPhaseForWinRef.current
+    prevPhaseForWinRef.current = phase
+    if (phase === 'payout' && prev !== 'payout') {
+      const didWin = (handWinners ?? []).some(w => w.seatIndex === yourSeatIndex)
+      play(didWin ? 'win' : 'lose')
+    }
+  }, [phase, handWinners, yourSeatIndex, play])
+
+  // ── Auto check/fold when turn timer expires ────────────────────────────────
   const onActionRef = useRef(onAction)
   onActionRef.current = onAction
   const autoStateRef = useRef({ currentBetLevel, yourSeatIndex, seats })
@@ -351,23 +423,7 @@ export function TableView({
     return () => clearTimeout(t)
   }, [isYourTurn, actionDeadline])
 
-  // Play sounds when opponents act
-  const prevLastActions = useRef<Record<number, string | null>>({})
-  useEffect(() => {
-    for (const seat of seats) {
-      if (seat.seatIndex === yourSeatIndex) continue
-      const prev = prevLastActions.current[seat.seatIndex]
-      const curr = seat.lastAction ?? null
-      if (curr !== null && curr !== prev) {
-        if (curr === 'fold') play('fold')
-        else if (curr === 'check') play('check')
-        else play('betraise')
-      }
-      prevLastActions.current[seat.seatIndex] = curr
-    }
-  }, [seats, yourSeatIndex, play])
-
-  const handleDropCard = (cardIndex: number) => { play('drop-card'); onDropCard(cardIndex) }
+  const handleDropCard = (cardIndex: number) => { play('drop'); onDropCard(cardIndex) }
 
   return (
     <div style={{
