@@ -32,10 +32,6 @@ html, body, #root {
 
 body {
   background-color: #050202;
-  background-image: url('/TeamVibeJam/assets/Background.png');
-  background-size: cover;
-  background-position: center;
-  background-attachment: fixed;
   color: #e8ddd8;
   font-family: var(--font-body);
   -webkit-font-smoothing: antialiased;

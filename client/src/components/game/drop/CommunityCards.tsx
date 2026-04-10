@@ -4,12 +4,11 @@ import { ChipStack } from './ChipStack'
 
 interface CommunityCardsProps {
   communityCards: Card[]
-  dropZone: Card[]
   pot: number
   turnIsHidden?: boolean
 }
 
-export function CommunityCards({ communityCards, dropZone, pot, turnIsHidden = false }: CommunityCardsProps) {
+export function CommunityCards({ communityCards, pot, turnIsHidden = false }: CommunityCardsProps) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
       {/* Community cards */}
@@ -30,41 +29,6 @@ export function CommunityCards({ communityCards, dropZone, pot, turnIsHidden = f
           }
           return <CardView key={i} card={communityCards[i] ?? null} faceDown={false} />
         })}
-      </div>
-
-      {/* Drop Zone / Brew Zone */}
-      <div style={{
-        padding: '5px 12px',
-        border: dropZone.length > 0 ? '1px solid rgba(212,175,55,0.6)' : '1px solid rgba(212,175,55,0.3)',
-        borderRadius: 8,
-        background: dropZone.length > 0 ? 'rgba(212,175,55,0.08)' : 'rgba(212,175,55,0.03)',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        gap: 6,
-        minWidth: 140,
-        transition: 'border-color 0.3s, background 0.3s',
-      }}>
-        <div style={{
-          fontSize: 10, letterSpacing: 2, color: 'var(--gold-dim)',
-          fontFamily: 'var(--font-body)', textTransform: 'uppercase',
-        }}>
-          {dropZone.length > 0 ? '⚗ The Brew ⚗' : '═══ Drop Zone ═══'}
-        </div>
-        <div style={{ display: 'flex', gap: 6 }}>
-          {dropZone.length === 0
-            ? [0,1,2].map(i => (
-                <div key={i} style={{
-                  width: 36, height: 52, borderRadius: 4,
-                  border: '1px dashed rgba(212,175,55,0.2)',
-                  background: 'rgba(0,0,0,0.2)',
-                }} />
-              ))
-            : dropZone.map((card, i) => (
-                <CardView key={i} card={card} small glowing />
-              ))
-          }
-        </div>
       </div>
 
       {/* Pot chips */}

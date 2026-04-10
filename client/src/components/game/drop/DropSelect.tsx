@@ -26,13 +26,13 @@ interface DropSelectProps {
 export function DropSelect({ cards, hasDropped, dropsReceived, totalDroppers, deadline, onDrop, omenMappings }: DropSelectProps) {
   return (
     <div style={{
-      position: 'absolute', left: 0, right: 0, bottom: 0,
-      height: '52%',
-      display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-end',
-      paddingBottom: 16,
-      background: 'linear-gradient(to bottom, transparent 0%, rgba(0,0,0,0.88) 22%)',
+      display: 'flex', flexDirection: 'column', alignItems: 'center',
       gap: 10,
-      zIndex: 10,
+      padding: '14px 24px 16px',
+      background: 'rgba(4,1,1,0.97)',
+      border: '1px solid rgba(212,175,55,0.35)',
+      borderRadius: 10,
+      boxShadow: '0 0 0 6px rgba(4,1,1,0.97), 0 0 32px rgba(0,0,0,0.9)',
     }}>
       <div style={{
         fontFamily: 'var(--font-display)',

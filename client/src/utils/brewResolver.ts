@@ -96,3 +96,16 @@ export const BREW_MODIFIER_COLORS: Record<BrewModifier, string> = {
 }
 
 export { BREW_DEFS }
+
+export const BREW_SHORT_DESCRIPTIONS: Record<BrewModifier, string> = {
+  'nuke':           'Board redealt from scratch',
+  'chain-lightning':'Strongest & weakest swap stacks',
+  'royal-tax':      'Next ante doubled',
+  'underdog':       'Weakest player draws bonus card',
+  'bleeding-pot':   'Winner pays half to runner-up',
+  'grave-dig':      'All players draw a card',
+  'jackpot':        'Pot triples',
+  'sabotage':       'Strongest card exposed',
+  'fire-sale':      'No raise limits this hand',
+  'blackout':       'Turn card hidden',
+}

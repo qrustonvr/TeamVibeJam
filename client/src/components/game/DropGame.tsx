@@ -6,6 +6,7 @@ import { WaitingRoom } from './drop/WaitingRoom'
 import { TableView } from './drop/TableView'
 import { ConnectionStatus } from './drop/ConnectionStatus'
 import { BrewSidebar } from './drop/BrewSidebar'
+import { FiendSidebar } from './drop/FiendSidebar'
 import type { HandWinner, PublicSeat, BrewResult } from '@shared/gameTypes'
 
 type GameMode = 'idle' | 'solo' | 'multiplayer'
@@ -73,6 +74,15 @@ export function DropGame() {
 
     return (
       <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'row', gap: 0 }}>
+        <FiendSidebar
+          dropZone={state.dropZone}
+          activeBrew={state.activeBrew}
+          omens={omens}
+          phase={state.phase}
+          playerName={state.seats[0]?.displayName}
+          playerStack={state.seats[0]?.stack}
+          playerLastAction={state.seats[0]?.lastAction ?? null}
+        />
         <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 8px', alignItems: 'center' }}>
             <button
@@ -173,6 +183,11 @@ export function DropGame() {
 
     return (
       <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'row', gap: 0 }}>
+        <FiendSidebar
+          dropZone={gameState.dropZone}
+          activeBrew={activeBrew}
+          phase={gameState.phase}
+        />
         <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
         <div style={{
           display: 'flex', justifyContent: 'space-between', padding: '4px 12px', alignItems: 'center',

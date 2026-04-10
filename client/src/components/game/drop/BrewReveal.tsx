@@ -42,7 +42,7 @@ export function BrewReveal({ brew, dropZone, omens, omenVotes }: BrewRevealProps
       backdropFilter: 'blur(6px)',
       borderRadius: 12,
       gap: 16,
-      zIndex: 15,
+      zIndex: 30,
     }}>
       {/* Dropped cards */}
       <div style={{ display: 'flex', gap: 10 }}>

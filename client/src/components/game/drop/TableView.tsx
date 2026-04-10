@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { Fragment, useEffect, useRef, useState } from 'react'
 import type { DropPhase, PublicSeat, Card, HandWinner, BrewResult, BrewModifier, ShowdownPlayerInfo } from '@shared/gameTypes'
 import { useSound } from '@/hooks/useSound'
 import { CardView } from './CardView'
@@ -8,10 +8,11 @@ import { BettingControls } from './BettingControls'
 import { DropSelect } from './DropSelect'
 import { BrewReveal } from './BrewReveal'
 import { ActiveModifier } from './ActiveModifier'
-import { OmensDisplay } from './OmensDisplay'
+import { OMEN_IMAGES } from './OmensDisplay'
 import { Showdown } from './Showdown'
 import { TimerBar } from './TimerBar'
 import { GameLog } from './GameLog'
+import { BREW_DEFS, BREW_MODIFIER_COLORS } from '@/utils/brewResolver'
 
 interface TableViewProps {
   phase: DropPhase | 'lobby'
@@ -39,17 +40,18 @@ interface TableViewProps {
   onNextHand?: () => void
 }
 
-// Visual positions for 6 seats around the oval.
-// Index 3 is always the local player (bottom-center).
-// cardsFirst: true → cards render closer to the table center (above the badge for bottom seats).
-const SEAT_POSITIONS = [
-  { left: '50%', top: '-10%', transform: 'translate(-50%, 0)',     cardsFirst: false }, // 0: top-center
-  { left: '87%', top: '26%', transform: 'translate(-50%, -50%)',  cardsFirst: false }, // 1: top-right
-  { left: '87%', top: '74%', transform: 'translate(-50%, -50%)',  cardsFirst: true  }, // 2: bot-right
-  { left: '50%', top: '100%', transform: 'translate(-50%, -100%)', cardsFirst: true  }, // 3: bottom (you)
-  { left: '13%', top: '74%', transform: 'translate(-50%, -50%)',  cardsFirst: true  }, // 4: bot-left
-  { left: '13%', top: '26%', transform: 'translate(-50%, -50%)',  cardsFirst: false }, // 5: top-left
-] as const
+// Per-slot layout: badge hovers above the character's head; cards sit on the
+// table surface in front of them. All values are % of the 16:9 container.
+const OPPONENT_SLOT_CONFIG: Record<number, {
+  badge: { left: string; top: string }
+  cards: { left: string; top: string }
+}> = {
+  0: { badge: { left: '50%',  top: '12%' }, cards: { left: '50%',  top: '23%' } }, // top-center
+  1: { badge: { left: '85%',  top: '14%' }, cards: { left: '63%',  top: '28%' } }, // top-right
+  2: { badge: { left: '85%',  top: '46%' }, cards: { left: '62%',  top: '52%' } }, // bot-right
+  4: { badge: { left: '15%',  top: '46%' }, cards: { left: '38%',  top: '52%' } }, // bot-left
+  5: { badge: { left: '15%',  top: '14%' }, cards: { left: '37%',  top: '28%' } }, // top-left
+}
 
 // The visual slot indices used for opponents (everything except slot 3)
 const OPPONENT_SLOTS = [0, 1, 2, 4, 5] as const
@@ -65,6 +67,7 @@ const SLOT_PORTRAITS: Record<number, string> = {
 const LOCAL_PORTRAIT = '/TeamVibeJam/assets/Sin.png'
 
 // ── SeatPortrait — circular portrait with green→red SVG timer ring ────────────
+// Used for the local player badge only (opponents use full-canvas overlays).
 
 function SeatPortrait({
   src, size = 64, isActive, deadline, dimmed = false,
@@ -74,7 +77,6 @@ function SeatPortrait({
   const [pct, setPct] = useState(1.0)
   const [activeSince, setActiveSince] = useState<number | null>(null)
 
-  // Track when this seat became active so AI turns get a self-managed 20s countdown
   useEffect(() => {
     if (isActive) {
       setActiveSince(prev => prev ?? Date.now())
@@ -84,7 +86,6 @@ function SeatPortrait({
     }
   }, [isActive])
 
-  // Tick the timer ring
   useEffect(() => {
     const effectiveDeadline = deadline ?? (activeSince ? activeSince + 20_000 : null)
     if (!isActive || !effectiveDeadline) { setPct(1.0); return }
@@ -103,7 +104,6 @@ function SeatPortrait({
 
   return (
     <div style={{ position: 'relative', width: size, height: size, flexShrink: 0 }}>
-      {/* Dark circular backing */}
       <div style={{ position: 'absolute', inset: 0, borderRadius: '50%', background: 'rgba(10,4,4,0.85)' }} />
       <img
         src={src}
@@ -136,6 +136,63 @@ function SeatPortrait({
   )
 }
 
+// ── TimerRing — SVG ring only, no portrait image ──────────────────────────────
+// Used for opponent seats whose character art comes from the full-canvas overlays.
+
+function TimerRing({
+  size = 36, isActive, deadline,
+}: {
+  size?: number; isActive: boolean; deadline: number | null
+}) {
+  const [pct, setPct] = useState(1.0)
+  const [activeSince, setActiveSince] = useState<number | null>(null)
+
+  useEffect(() => {
+    if (isActive) {
+      setActiveSince(prev => prev ?? Date.now())
+    } else {
+      setActiveSince(null)
+      setPct(1.0)
+    }
+  }, [isActive])
+
+  useEffect(() => {
+    const effectiveDeadline = deadline ?? (activeSince ? activeSince + 20_000 : null)
+    if (!isActive || !effectiveDeadline) { setPct(1.0); return }
+    const tick = () => setPct(Math.max(0, (effectiveDeadline - Date.now()) / 20_000))
+    tick()
+    const id = setInterval(tick, 100)
+    return () => clearInterval(id)
+  }, [isActive, deadline, activeSince])
+
+  const STROKE = 3
+  const r = (size - STROKE) / 2
+  const circ = 2 * Math.PI * r
+  const hue = Math.round(pct * 120)
+  const ringColor = isActive ? `hsl(${hue}, 90%, 55%)` : 'transparent'
+  const offset = circ * (1 - Math.min(Math.max(pct, 0), 1))
+
+  if (!isActive) return null
+
+  return (
+    <svg
+      width={size} height={size}
+      style={{ transform: 'rotate(-90deg)', flexShrink: 0 }}
+    >
+      <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="rgba(0,0,0,0.4)" strokeWidth={STROKE} />
+      <circle
+        cx={size / 2} cy={size / 2} r={r}
+        fill="none"
+        stroke={ringColor}
+        strokeWidth={STROKE}
+        strokeDasharray={circ}
+        strokeDashoffset={offset}
+        strokeLinecap="round"
+      />
+    </svg>
+  )
+}
+
 const ACTION_COLORS: Record<string, string> = {
   fold: '#ef4444',
   check: '#6b7280',
@@ -146,117 +203,71 @@ const ACTION_COLORS: Record<string, string> = {
 
 // ── Sub-components ──────────────────────────────────────────────────────────
 
-function EmptySeat({ cardsFirst }: { cardsFirst: boolean }) {
-  const badge = (
-    <div style={{
-      padding: '3px 10px',
-      borderRadius: 4,
-      background: 'rgba(0,0,0,0.2)',
-      border: '1px dashed rgba(255,255,255,0.1)',
-      fontFamily: 'var(--font-body)',
-      fontSize: 10,
-      color: 'rgba(255,255,255,0.2)',
-      whiteSpace: 'nowrap' as const,
-      minWidth: 72,
-      textAlign: 'center' as const,
-    }}>
-      Empty
-    </div>
-  )
-
-  const cards = (
-    <div style={{ display: 'flex', gap: 3, opacity: 0.2 }}>
-      <CardView card={null} faceDown small />
-      <CardView card={null} faceDown small />
-      <CardView card={null} faceDown small />
-    </div>
-  )
-
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
-      {cardsFirst ? <>{cards}{badge}</> : <>{badge}{cards}</>}
-    </div>
-  )
-}
-
-interface SeatBlockProps {
-  seat: PublicSeat
-  isActive: boolean
-  cardsFirst: boolean
-  showOmaha?: boolean
-  portrait: string
-  deadline: number | null
-}
-
-function SeatBlock({ seat, isActive, cardsFirst, showOmaha = false, portrait, deadline }: SeatBlockProps) {
+// Name + stack + action badge — floats above the character's head
+function SeatNameBadge({ seat, isActive, showOmaha = false, deadline }: {
+  seat: PublicSeat; isActive: boolean; showOmaha?: boolean; deadline: number | null
+}) {
   const dimmed = seat.folded || !seat.isConnected
-
-  const badge = (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}>
-      <SeatPortrait src={portrait} isActive={isActive} deadline={deadline} dimmed={dimmed} />
-      <div style={{ opacity: dimmed ? 0.4 : 1, transition: 'opacity 0.3s', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
-        <div style={{
-          padding: '3px 8px',
-          borderRadius: 4,
-          background: isActive ? 'rgba(212,175,55,0.2)' : 'rgba(0,0,0,0.5)',
-          border: isActive ? '1px solid var(--gold)' : '1px solid rgba(255,255,255,0.15)',
-          fontFamily: 'var(--font-body)',
-          fontSize: 11,
-          color: '#e5e7eb',
-          whiteSpace: 'nowrap' as const,
-          boxShadow: isActive ? '0 0 12px rgba(212,175,55,0.3)' : 'none',
-          transition: 'all 0.3s',
-        }}>
-          {seat.displayName}
-          {!seat.isConnected && <span style={{ color: '#ef4444', marginLeft: 4 }}>●</span>}
-          {seat.isConnected && isActive && <span style={{ marginLeft: 4 }}>●</span>}
-        </div>
-        <div style={{ fontFamily: 'var(--font-body)', fontSize: 11, color: 'var(--gold-dim)' }}>
-          ◆ {seat.stack}
-        </div>
-        {seat.currentBet > 0 && (
-          <ChipStack amount={seat.currentBet} chipSize={22} maxTypes={3} showLabel={false} />
-        )}
-        {seat.lastAction && (
-          <div style={{
-            padding: '1px 6px',
-            borderRadius: 3,
-            background: ACTION_COLORS[seat.lastAction] ?? 'rgba(255,255,255,0.2)',
-            fontSize: 9,
-            fontFamily: 'var(--font-body)',
-            color: '#000',
-            fontWeight: 700,
-            textTransform: 'uppercase' as const,
-            letterSpacing: 1,
-          }}>
-            {seat.lastAction}
-          </div>
-        )}
-        {showOmaha && (
-          <div style={{
-            padding: '1px 5px', borderRadius: 3,
-            background: 'rgba(139,92,246,0.2)', border: '1px solid rgba(139,92,246,0.6)',
-            fontSize: 8, fontFamily: 'var(--font-body)', color: '#c084fc',
-            fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase' as const,
-          }}>
-            OMAHA
-          </div>
-        )}
-      </div>
-    </div>
-  )
-
-  const cards = (
-    <div style={{ display: 'flex', gap: 3, opacity: dimmed ? 0.4 : 1, transition: 'opacity 0.3s' }}>
-      {Array.from({ length: seat.cardCount }).map((_, i) => (
-        <CardView key={i} card={null} faceDown small />
-      ))}
-    </div>
-  )
-
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
-      {cardsFirst ? <>{cards}{badge}</> : <>{badge}{cards}</>}
+    <div style={{
+      display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3,
+      opacity: dimmed ? 0.4 : 1, transition: 'opacity 0.3s',
+    }}>
+      <TimerRing isActive={isActive} deadline={deadline} />
+      <div style={{
+        padding: '3px 8px', borderRadius: 4,
+        background: isActive ? 'rgba(212,175,55,0.2)' : 'rgba(0,0,0,0.55)',
+        border: isActive ? '1px solid var(--gold)' : '1px solid rgba(255,255,255,0.15)',
+        fontFamily: 'var(--font-body)', fontSize: 11, color: '#e5e7eb',
+        whiteSpace: 'nowrap' as const,
+        boxShadow: isActive ? '0 0 12px rgba(212,175,55,0.3)' : 'none',
+        transition: 'all 0.3s',
+      }}>
+        {seat.displayName}
+        {!seat.isConnected && <span style={{ color: '#ef4444', marginLeft: 4 }}>●</span>}
+        {seat.isConnected && isActive && <span style={{ marginLeft: 4 }}>●</span>}
+      </div>
+      <div style={{ fontFamily: 'var(--font-body)', fontSize: 11, color: 'var(--gold-dim)' }}>
+        ◆ {seat.stack}
+      </div>
+      {seat.currentBet > 0 && (
+        <ChipStack amount={seat.currentBet} chipSize={22} maxTypes={3} showLabel={false} />
+      )}
+      {seat.lastAction && (
+        <div style={{
+          padding: '1px 6px', borderRadius: 3,
+          background: ACTION_COLORS[seat.lastAction] ?? 'rgba(255,255,255,0.2)',
+          fontSize: 9, fontFamily: 'var(--font-body)', color: '#000',
+          fontWeight: 700, textTransform: 'uppercase' as const, letterSpacing: 1,
+        }}>
+          {seat.lastAction}
+        </div>
+      )}
+      {showOmaha && (
+        <div style={{
+          padding: '1px 5px', borderRadius: 3,
+          background: 'rgba(139,92,246,0.2)', border: '1px solid rgba(139,92,246,0.6)',
+          fontSize: 8, fontFamily: 'var(--font-body)', color: '#c084fc',
+          fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase' as const,
+        }}>
+          OMAHA
+        </div>
+      )}
+    </div>
+  )
+}
+
+// Face-down hole cards — sits on the table in front of the character
+function SeatFaceDownCards({ seat }: { seat: PublicSeat }) {
+  const dimmed = seat.folded || !seat.isConnected
+  if (seat.cardCount === 0) return null
+  return (
+    <div style={{ display: 'flex', opacity: dimmed ? 0.35 : 1, transition: 'opacity 0.3s' }}>
+      {Array.from({ length: seat.cardCount }).map((_, i) => (
+        <div key={i} style={{ marginLeft: i === 0 ? 0 : -18 }}>
+          <CardView card={null} faceDown small />
+        </div>
+      ))}
     </div>
   )
 }
@@ -281,7 +292,7 @@ export function TableView({
   const isDropPhase = phase === 'drop'
   const isBrewReveal = phase === 'brew_reveal'
   const isShowdown = phase === 'showdown' || phase === 'payout'
-  const isOmensReveal = phase === 'omens-reveal'
+
   // Post-drop phases: show OMAHA badge when a player still has 3 cards from brew effects
   const isPostDrop = ['brew_reveal','betting_3','turn','betting_4','river','betting_5','showdown','payout'].includes(phase)
   const activeSeat = seats.find(s => s.seatIndex === activeSeatIndex)
@@ -330,126 +341,138 @@ export function TableView({
       borderRadius: 12,
     }}>
 
-      {/* ── Oval table + all seats ────────────────────────────────── */}
-      <div style={{ position: 'relative', width: '100%', height: 520 }}>
+      {/* ── Table image + all overlays ───────────────────────────── */}
+      {/* Background.png is 2560×1440 (16:9). All seats and cards are
+          absolute-positioned using percentages relative to this container. */}
+      <div style={{ position: 'relative', width: '100%', aspectRatio: '16 / 9' }}>
 
-        {/* Oval felt surface */}
-        <div style={{
-          position: 'absolute',
-          left: '13%', right: '13%', top: '12%', bottom: '12%',
-          borderRadius: '50%',
-          background: 'radial-gradient(ellipse 80% 60% at 50% 40%, #2a0808 0%, #160404 45%, #080202 100%)',
-          border: '10px solid #3a0a0a',
-          boxShadow: [
-            '0 0 0 2px #7a1a1a',
-            '0 0 0 4px #1a0404',
-            'inset 0 0 80px rgba(0,0,0,0.6)',
-            '0 12px 48px rgba(0,0,0,0.8)',
-          ].join(', '),
-          overflow: 'hidden',
-        }}>
-          {/* Felt noise overlay */}
-          <div className="table-felt-noise absolute inset-0 pointer-events-none" />
-
-          {/* Inner rim */}
-          <div style={{
-            position: 'absolute', inset: 4, borderRadius: '50%',
-            border: '1px solid rgba(255,255,255,0.04)', pointerEvents: 'none',
-          }} />
-
-          {/* Center: community cards, drop zone, pot, modifiers, overlays */}
-          <div style={{
+        {/* ── Layer 1: cave background ── */}
+        <img
+          src="/TeamVibeJam/assets/Background.png"
+          draggable={false}
+          style={{
             position: 'absolute', inset: 0,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-          }}>
-            <div style={{ position: 'relative', width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-start', paddingTop: 60 }}>
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
-                <CommunityCards
-                  communityCards={communityCards}
-                  dropZone={dropZone}
-                  pot={pot}
-                  turnIsHidden={isBlackout}
-                />
-                {activeBrew && <ActiveModifier brew={activeBrew} />}
-              </div>
+            width: '100%', height: '100%',
+            pointerEvents: 'none', userSelect: 'none',
+          }}
+        />
 
-              {isDropPhase && (
-                <DropSelect
-                  cards={yourCards}
-                  hasDropped={mySeat?.hasDropped ?? false}
-                  dropsReceived={dropsReceived}
-                  totalDroppers={totalDroppers}
-                  deadline={isYourDropTurn ? actionDeadline : null}
-                  onDrop={handleDropCard}
-                  omenMappings={omenMappings[yourSeatIndex]}
-                />
-              )}
+        {/* ── Layer 2: player table (open = gravestones visible when omens set) ── */}
+        <img
+          src={omens.length > 0
+            ? '/TeamVibeJam/assets/PlayerTable.png'
+            : '/TeamVibeJam/assets/PlayerTableClosed.png'}
+          draggable={false}
+          style={{
+            position: 'absolute', inset: 0,
+            width: '100%', height: '100%',
+            pointerEvents: 'none', userSelect: 'none',
+          }}
+        />
 
-              {isBrewReveal && activeBrew && (
-                <BrewReveal
-                  brew={activeBrew}
-                  dropZone={dropZone}
-                  omens={omens}
-                  omenVotes={omenVotes}
-                />
-              )}
-
-              {isShowdown && handWinners && handWinners.length > 0 && (
-                <Showdown
-                  winners={handWinners}
-                  seats={seats}
-                  activeBrew={activeBrew}
-                  allPlayers={showdownPlayers ?? undefined}
-                  onPlayAgain={onNextHand}
-                />
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Opponent seats (visual slots 0, 1, 2, 4, 5) */}
+        {/* ── Layer 3: opponent character art (only for occupied seats) ── */}
         {OPPONENT_SLOTS.map((visualSlot, arrayIdx) => {
           const seat = otherSeats[arrayIdx] ?? null
-          const pos = SEAT_POSITIONS[visualSlot]
+          const charSrc = SLOT_PORTRAITS[visualSlot]
+          if (!seat || !charSrc) return null
           return (
-            <div
-              key={visualSlot}
+            <img
+              key={`char-${visualSlot}`}
+              src={charSrc}
+              draggable={false}
               style={{
-                position: 'absolute',
-                left: pos.left,
-                top: pos.top,
-                transform: pos.transform,
+                position: 'absolute', inset: 0,
+                width: '100%', height: '100%',
+                pointerEvents: 'none', userSelect: 'none',
+                opacity: (seat.folded || !seat.isConnected) ? 0.25 : 1,
+                transition: 'opacity 0.4s',
               }}
-            >
-              {seat
-                ? <SeatBlock
-                    seat={seat}
-                    isActive={seat.seatIndex === activeSeatIndex}
-                    cardsFirst={pos.cardsFirst}
-                    showOmaha={isPostDrop && seat.cardCount >= 3}
-                    portrait={SLOT_PORTRAITS[visualSlot] ?? '/TeamVibeJam/assets/Char__0000s_0000_char__0000_TopCenter.png'}
-                    deadline={seat.seatIndex === activeSeatIndex ? actionDeadline : null}
-                  />
-                : <EmptySeat cardsFirst={pos.cardsFirst} />
-              }
-            </div>
+            />
           )
         })}
 
-        {/* Local player seat slot 3 — empty, badge moved below oval */}
-      </div>
-
-      {/* ── Controls panel + log — anchored to bottom ───────────── */}
-      <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: 6 }}>
-        {/* Omens display */}
-        {(isOmensReveal || omens.length > 0) && !activeBrew && !isBrewReveal && !isShowdown && (
-          <div style={{ display: 'flex', justifyContent: 'center' }}>
-            <OmensDisplay omens={omens} />
+        {/* Community cards + phase overlays — center of table surface */}
+        <div style={{
+          position: 'absolute',
+          top: '32%', left: '50%',
+          transform: 'translateX(-50%)',
+          display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6,
+          zIndex: 1,
+        }}>
+          <div style={{ transform: 'scale(0.85)', transformOrigin: 'center top' }}>
+            <CommunityCards
+              communityCards={communityCards}
+              pot={pot}
+              turnIsHidden={isBlackout}
+            />
           </div>
-        )}
+          {activeBrew && <ActiveModifier brew={activeBrew} />}
 
-        {/* Player badge + stack */}
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+          {isShowdown && handWinners && handWinners.length > 0 && (
+            <Showdown
+              winners={handWinners}
+              seats={seats}
+              activeBrew={activeBrew}
+              allPlayers={showdownPlayers ?? undefined}
+              onPlayAgain={onNextHand}
+            />
+          )}
+        </div>
+
+        {/* Opponent seats (visual slots 0, 1, 2, 4, 5)
+            Badge floats above the character's head; cards sit on the table */}
+        {OPPONENT_SLOTS.map((visualSlot, arrayIdx) => {
+          const seat = otherSeats[arrayIdx] ?? null
+          const cfg = OPPONENT_SLOT_CONFIG[visualSlot]
+          const isActive = seat?.seatIndex === activeSeatIndex
+          return (
+            <Fragment key={visualSlot}>
+              {/* Name / stack badge — above head */}
+              <div style={{
+                position: 'absolute',
+                left: cfg.badge.left, top: cfg.badge.top,
+                transform: 'translate(-50%, -100%)',
+                zIndex: 2,
+              }}>
+                {seat
+                  ? <SeatNameBadge
+                      seat={seat}
+                      isActive={isActive}
+                      showOmaha={isPostDrop && seat.cardCount >= 3}
+                      deadline={isActive ? actionDeadline : null}
+                    />
+                  : <div style={{
+                      padding: '2px 8px', borderRadius: 4,
+                      background: 'rgba(0,0,0,0.3)',
+                      border: '1px dashed rgba(255,255,255,0.1)',
+                      fontFamily: 'var(--font-body)', fontSize: 10,
+                      color: 'rgba(255,255,255,0.2)',
+                    }}>Empty</div>
+                }
+              </div>
+              {/* Face-down cards — on the table */}
+              {seat && (
+                <div style={{
+                  position: 'absolute',
+                  left: cfg.cards.left, top: cfg.cards.top,
+                  transform: 'translate(-50%, -50%)',
+                  zIndex: 2,
+                }}>
+                  <SeatFaceDownCards seat={seat} />
+                </div>
+              )}
+            </Fragment>
+          )
+        })}
+
+        {/* Local player — portrait + badge, right side of player table */}
+        <div style={{
+          position: 'absolute',
+          left: '78%', top: '74%',
+          transform: 'translate(-50%, -50%)',
+          display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3,
+          zIndex: 2,
+        }}>
           <SeatPortrait
             src={LOCAL_PORTRAIT}
             size={56}
@@ -470,15 +493,8 @@ export function TableView({
           }}>
             ⭐ You
           </div>
-          {mySeat && (
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
-              <div style={{ fontFamily: 'var(--font-body)', fontSize: 11, color: 'var(--gold-dim)' }}>
-                ◆ {mySeat.stack}
-              </div>
-              {mySeat.currentBet > 0 && (
-                <ChipStack amount={mySeat.currentBet} chipSize={24} maxTypes={3} showLabel={false} />
-              )}
-            </div>
+          {mySeat?.currentBet > 0 && (
+            <ChipStack amount={mySeat.currentBet} chipSize={24} maxTypes={3} showLabel={false} />
           )}
           {mySeat?.exposedCard && (
             <span style={{ color: '#c084fc', fontSize: 10, fontFamily: 'var(--font-body)' }}>
@@ -487,68 +503,106 @@ export function TableView({
           )}
         </div>
 
-        {/* Player's hole cards on PlayerTable */}
-        <div style={{ display: 'flex', justifyContent: 'center' }}>
-          {(() => {
-            const hasDropped = mySeat?.hasDropped ?? false
-            // Container: 640×360 (16:9 — matches PlayerTable.png aspect ratio)
-            // Flat card slot x-centres at 28%, 50%, 72% of 640 = 179, 320, 461
-            // Card width 52 → left = centre − 26
-            // Flat slot y-centre at 68% of 360 = 245 → card top = 245 − 38 (half of 76)
-            const W = 640, H = 360
-            const CARD_W = 52, CARD_H = 76
-            const slotCentresX = [179, 320, 461]
-            const slotY = Math.round(H * 0.68) - Math.round(CARD_H / 2)   // 207
-            const slotX: number[] =
-              yourCards.length <= 1 ? [slotCentresX[1] - 26] :
-              yourCards.length === 2 ? [slotCentresX[0] - 26, slotCentresX[2] - 26] :
-              slotCentresX.map(cx => cx - 26)
-            return (
-              <div style={{ position: 'relative', width: W, height: H, flexShrink: 0, maxWidth: '100%' }}>
-                <img
-                  src="/TeamVibeJam/assets/PlayerTable.png"
-                  draggable={false}
-                  style={{
-                    position: 'absolute', inset: 0,
-                    width: '100%', height: '100%',
-                    mixBlendMode: 'lighten',
-                    pointerEvents: 'none', userSelect: 'none',
-                  }}
-                />
-                {yourCards.map((card, i) => (
-                  <div
-                    key={i}
-                    style={{
-                      position: 'absolute',
-                      left: slotX[i] ?? slotCentresX[1] - 26,
-                      top: slotY,
-                      width: CARD_W,
-                      height: CARD_H,
-                      cursor: isDropPhase && !hasDropped && isYourDropTurn ? 'pointer' : 'default',
-                    }}
-                  >
-                    <CardView
-                      card={card}
-                      onClick={isDropPhase && !hasDropped && isYourDropTurn ? () => handleDropCard(i) : undefined}
-                      selected={false}
-                    />
-                  </div>
-                ))}
-                {isDropPhase && !hasDropped && (
-                  <div style={{
-                    position: 'absolute', bottom: 16, left: 0, right: 0, textAlign: 'center',
-                    fontSize: 10, color: 'var(--gold)', fontFamily: 'var(--font-body)',
-                    letterSpacing: 1, textTransform: 'uppercase',
-                    animation: 'glow 2.5s ease-in-out infinite',
-                  }}>
-                    Select a card to drop
-                  </div>
-                )}
-              </div>
-            )
-          })()}
-        </div>
+        {/* Gravestone omen labels — shown on the three gravestones when omens are set */}
+        {omens.length > 0 && !activeBrew && !isShowdown && omens.slice(0, 3).map((omen, i) => {
+          const slotX = [42.5, 50.5, 59][i] ?? 50
+          const def = BREW_DEFS[omen]
+          const color = BREW_MODIFIER_COLORS[omen]
+          const imgSrc = OMEN_IMAGES[omen]
+          return (
+            <div
+              key={omen}
+              style={{
+                position: 'absolute',
+                left: `${slotX}%`,
+                top: '63%',
+                transform: 'translate(-50%, -50%)',
+                display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4,
+                zIndex: 3,
+                pointerEvents: 'none',
+                textAlign: 'center',
+                width: 90,
+              }}
+            >
+              <img src={imgSrc} alt={def.name} style={{ width: 52, height: 52, objectFit: 'contain' }} />
+              <span style={{
+                fontFamily: 'var(--font-body)', fontSize: 10,
+                fontWeight: 700, letterSpacing: 1,
+                textTransform: 'uppercase' as const,
+                color,
+                lineHeight: 1.2,
+              }}>
+                {def.name}
+              </span>
+            </div>
+          )
+        })}
 
+        {/* Hole cards — overlaid at the card slots visible at the bottom of the image */}
+        {(() => {
+          const hasDropped = mySeat?.hasDropped ?? false
+          // Card slot x-centres as % of image width, y-centre as % of image height
+          const slotCentresX =
+            yourCards.length <= 1 ? [50] :
+            yourCards.length === 2 ? [40, 60] :
+            [40, 50, 60]
+          const CARD_W = 52, CARD_H = 76
+          return yourCards.map((card, i) => (
+            <div
+              key={i}
+              style={{
+                position: 'absolute',
+                left: `calc(${slotCentresX[i]}% - ${CARD_W / 2}px)`,
+                top: 'calc(82% - 38px)',
+                width: CARD_W, height: CARD_H,
+                transform: 'perspective(500px) rotateX(-28deg)',
+                transformOrigin: 'center bottom',
+                cursor: isDropPhase && !hasDropped && isYourDropTurn ? 'pointer' : 'default',
+                zIndex: 2,
+              }}
+            >
+              <CardView
+                card={card}
+                onClick={isDropPhase && !hasDropped && isYourDropTurn ? () => handleDropCard(i) : undefined}
+                selected={false}
+              />
+            </div>
+          ))
+        })()}
+
+        {/* BrewReveal — full table overlay, must be above all card layers */}
+        {isBrewReveal && activeBrew && (
+          <BrewReveal
+            brew={activeBrew}
+            dropZone={dropZone}
+            omens={omens}
+            omenVotes={omenVotes}
+          />
+        )}
+
+        {/* DropSelect — positioned over the player card table area */}
+        {isDropPhase && (
+          <div style={{
+            position: 'absolute',
+            top: '58%', left: '50%',
+            transform: 'translateX(-50%)',
+            zIndex: 10,
+          }}>
+            <DropSelect
+              cards={yourCards}
+              hasDropped={mySeat?.hasDropped ?? false}
+              dropsReceived={dropsReceived}
+              totalDroppers={totalDroppers}
+              deadline={isYourDropTurn ? actionDeadline : null}
+              onDrop={handleDropCard}
+              omenMappings={omenMappings[yourSeatIndex]}
+            />
+          </div>
+        )}
+      </div>
+
+      {/* ── Controls panel + log — below the table image ─────────── */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
         {/* minHeight reserves space for betting controls so the panel never collapses between phases */}
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, minHeight: 56 }}>
           <div style={{ width: '100%', maxWidth: 300 }}>

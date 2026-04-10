@@ -1,7 +1,7 @@
 import type { BrewModifier } from '@shared/gameTypes'
 import { BREW_DEFS, BREW_MODIFIER_COLORS } from '@/utils/brewResolver'
 
-const OMEN_IMAGES: Record<BrewModifier, string> = {
+export const OMEN_IMAGES: Record<BrewModifier, string> = {
   'nuke':           '/TeamVibeJam/assets/Omen__0000_TheAshenDecree.png',
   'bleeding-pot':   '/TeamVibeJam/assets/Omen__0001_BloodBounty.png',
   'royal-tax':      '/TeamVibeJam/assets/Omen__0002_TheTithe.png',
